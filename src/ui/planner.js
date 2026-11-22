@@ -1343,6 +1343,7 @@ function itemInspector(it) {
     el('div', { class: 'row' },
       el('button', { type: 'button', class: 'btn small', onclick: () => { world.backToWall(it, world.ROOMS[it.room]); syncItems(); commit(); renderInspectorSoon(); } }, 'Back against nearest wall'),
       it.shape === 'cornerSofa' ? el('button', { type: 'button', class: 'btn small', onclick: () => { it.mirror = !it.mirror; syncItems(); commit(); } }, 'Swap the chaise side') : null,
+      it.shape === 'pcTower' ? el('button', { type: 'button', class: 'btn small', onclick: () => { it.mirror = !it.mirror; syncItems(); commit(); } }, 'Swap the window side') : null,
       e ? el('button', { type: 'button', class: 'btn small', onclick: async () => {
         const res = await editEntryFlow(e);
         if (!flat) return;

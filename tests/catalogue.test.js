@@ -82,6 +82,12 @@ describe('catalogue', () => {
     expect(d).toMatchObject({ shape: 'drawerDesk', category: 'Tables', room: 'study', w: 1.4, d: 0.6, h: 0.75, status: 'owned' });
   });
 
+  it('reads a PC tower from a spreadsheet', () => {
+    const [pc] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status\nMy PC,PC tower,23.1,45,46.3,own\n');
+    expect(pc).toMatchObject({ shape: 'pcTower', category: 'Electronics', room: 'study', status: 'owned' });
+    expect(pc.w).toBeCloseTo(0.231); expect(pc.h).toBeCloseTo(0.463);
+  });
+
   it('keeps rooms and examples through a spreadsheet', () => {
     const cat = [newEntry('bed', { name: 'Our bed' }), newEntry('box', { name: 'Bike', room: 'hall' }), newEntry('plant', { name: 'Fern', room: '' }), ...starterCatalogue().slice(0, 1)];
     const back = entriesFromCsv(entriesToCsv(cat));
