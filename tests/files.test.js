@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { starterCatalogue } from '../src/core/catalogue.js';
-import { entriesFromCsv, entriesToCsv, flatFile, readFile } from '../src/core/files.js';
+import { entriesFromCsv, entriesToCsv, flatFile, readCatalogueCsv, readFile } from '../src/core/files.js';
 import { sampleFlat } from '../src/core/sample-flat.js';
 
 const legacy = {
@@ -69,5 +69,28 @@ describe('files', () => {
 
   it('refuses files it does not understand', () => {
     expect(() => readFile({ hello: 1 }, [])).toThrow();
+  });
+
+  it('reports unsupported, missing and fitting shapes before importing blocks', () => {
+    const { entries, warnings } = readCatalogueCsv('name,shape,width_cm\nOven,spaceship,60\nBike,,120\nSink,vanity,80\nBlock,box,50\n');
+    expect(warnings).toEqual([
+      { row: 2, entryIndex: 0, name: 'Oven', shape: 'spaceship' },
+      { row: 3, entryIndex: 1, name: 'Bike', shape: '' },
+      { row: 4, entryIndex: 2, name: 'Sink', shape: 'vanity' },
+    ]);
+    expect(entries.map((e) => e.shape)).toEqual(['box', 'box', 'box', 'box']);
+    expect(entries[0].w).toBe(0.6);
+  });
+
+  it('accepts supported shape keys and labels without warnings', () => {
+    const result = readCatalogueCsv('name;type\r\nMicrowave;MICROWAVE\r\nChair;Desk chair\r\nTable;coffeeTable\r\n');
+    expect(result.warnings).toEqual([]);
+    expect(result.entries.map((e) => e.shape)).toEqual(['microwave', 'officeChair', 'coffeeTable']);
+    expect(readCatalogueCsv('name,shape').entries).toEqual([]);
+  });
+
+  it('reports physical line numbers after blank lines and quoted multiline fields', () => {
+    const { warnings } = readCatalogueCsv('name,shape,notes\r\n\r\nDesk,desk,"first\r\nsecond"\r\n"Oven, silver",typo,\r\n');
+    expect(warnings).toEqual([{ row: 5, entryIndex: 1, name: 'Oven, silver', shape: 'typo' }]);
   });
 });

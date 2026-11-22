@@ -36,6 +36,9 @@ of the things you own or want to buy.
   just an example, how many you have, price, shop link, notes and a photo. The starter
   pieces are examples: typical sizes to plan with, kept apart from your own things. Every item gets a 3D preview at its real size and colour. Change a size
   here and it changes in every flat. Import and export it as a spreadsheet (`.csv`).
+  If a spreadsheet has missing or unsupported 3D shapes, review the affected rows
+  before saving: choose a supported shape, keep an item as a block, or cancel to
+  correct the spreadsheet. The review keeps the item's sizes and other details.
 - **Decorate**: wall colours per room or per wall, floors per room, ceiling and trim.
 - **Look around**: 3D, top view (like an architect's plan, cut at 1.2 m) and eye level,
   where you can walk through the doorways.

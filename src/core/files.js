@@ -110,28 +110,31 @@ export function importLegacyLayout(obj, catalogue) {
 
 /* ------------------------------------------------------------------ CSV */
 /** Parse CSV text (quoted fields, commas or semicolons) into rows of strings. */
-export function parseCsv(text) {
+function csvRecords(text) {
   const rows = [];
-  let row = [], field = '', q = false;
+  let row = [], field = '', q = false, line = 1, startLine = 1;
   const delim = (text.split('\n')[0].match(/;/g) || []).length > (text.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (q) {
       if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
-      else field += c;
+      else { field += c; if (c === '\n' || (c === '\r' && text[i + 1] !== '\n')) line++; }
     } else if (c === '"') q = true;
     else if (c === delim) { row.push(field); field = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && text[i + 1] === '\n') i++;
       row.push(field); field = '';
-      if (row.some((x) => x.trim() !== '')) rows.push(row);
+      if (row.some((x) => x.trim() !== '')) rows.push({ cells: row, line: startLine });
       row = [];
+      startLine = ++line;
     } else field += c;
   }
   row.push(field);
-  if (row.some((x) => x.trim() !== '')) rows.push(row);
+  if (row.some((x) => x.trim() !== '')) rows.push({ cells: row, line: startLine });
   return rows;
 }
+
+export function parseCsv(text) { return csvRecords(text).map((r) => r.cells); }
 
 const CSV_COLUMNS = ['name', 'category', 'room', 'shape', 'width_cm', 'depth_cm', 'height_cm', 'off_floor_cm', 'colour', 'status', 'quantity', 'price', 'link', 'notes'];
 export const CSV_HEADER = CSV_COLUMNS.join(',');
@@ -147,15 +150,18 @@ function roomFromText(t) {
 const SHAPE_WORDS = Object.fromEntries(Object.entries(SHAPES).filter(([, s]) => !s.fitting).flatMap(([k, s]) => [[k.toLowerCase(), k], [s.label.toLowerCase(), k]]));
 
 /** Catalogue entries from CSV rows with a header like CSV_HEADER (any order, extra columns ignored). */
-export function entriesFromCsv(text) {
-  const rows = parseCsv(text);
-  if (rows.length < 2) return [];
+export function readCatalogueCsv(text) {
+  const records = csvRecords(text), rows = records.map((r) => r.cells), warnings = [];
+  if (rows.length < 2) return { entries: [], warnings };
   const head = rows[0].map((h) => h.trim().toLowerCase().replace(/\(cm\)|cm\b|_cm/g, '').replace(/[^a-z]+/g, '_').replace(/^_+|_+$/g, '').replace(/^color$/, 'colour'));
   const col = (row, ...names) => { for (const n of names) { const i = head.indexOf(n); if (i >= 0 && row[i] !== undefined && row[i].trim() !== '') return row[i].trim(); } return ''; };
   const cmv = (v) => { const n = numOr(String(v).replace(',', '.'), null); return n === null ? undefined : n / 100; };
-  return rows.slice(1).map((r) => {
+  const entries = rows.slice(1).map((r, index) => {
     const shapeWord = col(r, 'shape', 'type').toLowerCase();
-    const shape = SHAPE_WORDS[shapeWord] || 'box';
+    const shape = Object.hasOwn(SHAPE_WORDS, shapeWord) ? SHAPE_WORDS[shapeWord] : 'box';
+    if (!Object.hasOwn(SHAPE_WORDS, shapeWord)) warnings.push({
+      row: records[index + 1].line, entryIndex: index, name: col(r, 'name', 'item'), shape: col(r, 'shape', 'type'),
+    });
     const st = col(r, 'status');
     const status = /buy|want|wish/i.test(st) ? 'buy' : /example|template|typical/i.test(st) ? 'example' : 'owned';
     const roomCell = col(r, 'room');
@@ -169,7 +175,11 @@ export function entriesFromCsv(text) {
       price: price === '' ? null : price, url: col(r, 'link', 'url'), notes: col(r, 'notes'),
     });
   }).filter((e) => e.name);
+  return { entries, warnings };
 }
+
+/** Compatibility helper for callers that only need the entries. Interactive imports use readCatalogueCsv. */
+export function entriesFromCsv(text) { return readCatalogueCsv(text).entries; }
 
 export function entriesToCsv(catalogue) {
   const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };

@@ -247,6 +247,8 @@ details.more[open] summary { margin-bottom: 8px; }
 .dlg::backdrop { background: rgba(12, 22, 22, 0.42); }
 .dlg form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 20px 22px 18px; }
 .dlg h2 { font: 700 20px/1.2 var(--font-display); }
+.import-warning { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
+.import-warning select { width: 100%; min-width: 0; }
 .dlg .foot-btns { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px; }
 .dlg .foot-btns .left { margin-right: auto; }
 .choice { display: grid; gap: 6px; }
