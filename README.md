@@ -74,7 +74,7 @@ node scripts/flat-link.mjs flat.json --out flat.flat.json           # check a tr
 
 ## Running it
 
-You need [Node.js](https://nodejs.org) 20 or later.
+You need [Node.js](https://nodejs.org) 22 or later.
 
 ```sh
 npm install
