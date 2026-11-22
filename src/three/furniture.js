@@ -249,6 +249,18 @@ export const BUILD = {
     for (const s of [-1, 1]) { g.add(B(0.05, 0.075, 0.03, metalMat(), s * (w / 2 - 0.14), 0.0375, 0)); g.add(B(0.06, 0.012, d, metalMat(), s * (w / 2 - 0.14), 0.006, 0)); }
     return g;
   },
+  monitor(it) {
+    // A screen on a single stand: a flat base, a neck at the back, the panel above.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const body = stdMat(it.color, 0.45), screenMat = stdMat('#06080a', 0.15, 0.3);
+    const ph = Math.min(h * 0.8, w * 0.62), pt = 0.022, pz = -d / 2 + Math.min(0.06, d * 0.35);
+    g.add(B(Math.min(w * 0.42, 0.26), 0.014, d, body, 0, 0.007, 0, 0.006));
+    g.add(B(0.045, h - ph * 0.5, 0.025, body, 0, (h - ph * 0.5) / 2, pz - pt / 2 - 0.012, 0.006));
+    g.add(B(w, ph, pt, body, 0, h - ph / 2, pz, 0.006));
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.016, ph - 0.03), screenMat);
+    screen.position.set(0, h - ph / 2 + 0.006, pz + pt / 2 + 0.0005); g.add(screen);
+    return g;
+  },
   pcTower(it) {
     // A windowed tower case standing on its feet, front facing +z: glass on the left
     // side (the right when mirrored) showing the parts inside, a mesh front with two

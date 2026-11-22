@@ -19,6 +19,9 @@ describe('catalogue', () => {
     expect(by.floorLamp.category).toBe('Lighting');
     expect(by.desk.room).toBe('study');
     expect(by.plant.room).toBe('');
+    expect(by.shoeCabinet).toMatchObject({ shape: 'sideboard', room: 'hall' });
+    expect(by.monitor).toMatchObject({ shape: 'monitor', category: 'Electronics', room: 'study' });
+    expect(by.monitor.elev).toBeCloseTo(0.75);
     expect(cat.some((e) => e.category === 'Bedroom' || e.category === 'Screen and lights')).toBe(false);
   });
 
