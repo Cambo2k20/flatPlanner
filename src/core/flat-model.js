@@ -7,7 +7,7 @@
    between them; the gap is the wall. Doors and windows sit on one of a room's walls. */
 import { DEFAULT_CEILING_PAINT, DEFAULT_TRIM, FLAT_STATUS, FLOORS, ROOM_TYPES } from './palette.js';
 import { SHAPES, isShape } from './shapes.js';
-import { clamp, hexOr, isHex, numOr, str, uid } from './util.js';
+import { clamp, hexOr, isHex, numOr, safeUrl, str, uid } from './util.js';
 
 export const FLAT_FORMAT = 1;
 export const CORNERS = { nw: 'Top left', ne: 'Top right', se: 'Bottom right', sw: 'Bottom left' };
@@ -254,6 +254,9 @@ export function normalizeFlat(f) {
     rentPeriod: f.rentPeriod === 'week' ? 'week' : f.rentPeriod === 'sale' ? 'sale' : 'month',
     status: FLAT_STATUS[f.status] ? f.status : 'interested',
     notes: str(f.notes, 5000),
+    // web addresses from the listing: its photos, and its floorplan picture
+    photos: [...new Set((Array.isArray(f.photos) ? f.photos : []).map((u) => safeUrl(u)).filter((u) => u.startsWith('https:')))].slice(0, 40),
+    floorplanUrl: (() => { const u = safeUrl(f.floorplanUrl); return u.startsWith('https:') ? u : ''; })(),
     created: numOr(f.created, Date.now()),
     updated: numOr(f.updated, Date.now()),
     ceiling: clamp(numOr(f.ceiling, 2.4), 2.0, 4.0),

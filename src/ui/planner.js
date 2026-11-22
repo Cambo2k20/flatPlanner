@@ -18,6 +18,8 @@ import { createWorld } from '../core/placement.js';
 import { FITTING_SHAPES, SHAPES } from '../core/shapes.js';
 import { $, $$, clamp, cm, downloadBlob, el, fileToImageDataUrl, ftin, money, rad, safeUrl, selectEl, slug, snapTo, toast, uid } from '../core/util.js';
 import { computeWalls } from '../core/walls.js';
+import { flatFile } from '../core/files.js';
+import { flatLink } from '../core/share.js';
 import { db, deletePicture, findEntry, getPicture, planKey, saveFlats, savePrefs, setPicture, thumbKey } from '../store.js';
 import { PLAN_CUT, buildFlatMeshes, swingFill, swingLine } from '../three/flat-mesh.js';
 import { buildThing, disposeGeo, placeThing } from '../three/furniture.js';
@@ -158,7 +160,12 @@ export function openPlanner(f, tabName) {
     world = createWorld(flat, walls);
     for (const it of flat.design.items) world.resolve(it, false, world.roomAt(it.x, it.z) || world.ROOMS[it.room]);
     hist.stack = [snapshot()]; hist.i = 0;
-    if (flat.underlay) getPicture(planKey(flat.id)).then((img) => { if (flat && flat.id === f.id) { underlayImg = img || null; updateUnderlay(); } });
+    getPicture(planKey(flat.id)).then((img) => {
+      if (!flat || flat.id !== f.id) return;
+      underlayImg = img || null; updateUnderlay();
+      if (!img && flat.floorplanUrl && !floorplanTried.has(flat.id)) fetchListingFloorplan({ quiet: true });
+      else if (img && tab === 'layout') renderLayout();
+    });
   }
   rebuildFlat();
   syncItems();
@@ -629,17 +636,48 @@ function updateUnderlay() {
 }
 async function addUnderlay() {
   const f = await pickFile('image/*');
-  if (!f || !flat) return;
+  if (f && flat) await useFloorplan(f);
+}
+/** Put a picture (a File or Blob) under the plan. */
+async function useFloorplan(blob, { quiet = false } = {}) {
+  const forFlat = flat;
   try {
-    const { dataUrl, width, height } = await fileToImageDataUrl(f, 2000, 'image/jpeg', 0.86);
+    const { dataUrl, width, height } = await fileToImageDataUrl(blob, 2000, 'image/jpeg', 0.86);
+    if (flat !== forFlat) return false;
     if (underlayImg) forgetImage(underlayImg);
     await setPicture(planKey(flat.id), dataUrl); underlayImg = dataUrl;
+    // A flat that already knows where its picture goes (a replaced picture, or a flat
+    // traced from the same floorplan) keeps that place and scale.
+    const known = flat.underlay;
     const [x0, z0, x1, z1] = flatBounds(flat, 0);
-    flat.underlay = { show: true, x: (x0 + x1) / 2, z: (z0 + z1) / 2, width: flat.rooms.length > 1 ? Math.max(4, (x1 - x0) * 1.2) : 10, aspect: height / width, rot: 0, opacity: 0.6 };
-    commit(); updateUnderlay(); renderLayout();
-    if (mode !== 'plan') setMode('plan');
-    toast('Floorplan added. Set its width until the rooms on it match their sizes, then trace each room.');
-  } catch { toast('That file isn’t a picture this browser can read.'); }
+    flat.underlay = known
+      ? { ...known, show: true, aspect: height / width }
+      : { show: true, x: (x0 + x1) / 2, z: (z0 + z1) / 2, width: flat.rooms.length > 1 ? Math.max(4, (x1 - x0) * 1.2) : 10, aspect: height / width, rot: 0, opacity: 0.6 };
+    commit(); updateUnderlay(); renderPanels();
+    if (!quiet) {
+      if (mode !== 'plan') setMode('plan');
+      toast(known ? 'Floorplan added in its saved place. Use “Move it” or the width if it needs nudging.' : 'Floorplan added. Set its width until the rooms on it match their sizes, then trace each room.');
+    }
+    return true;
+  } catch { if (!quiet) toast('That file isn’t a picture this browser can read.'); return false; }
+}
+/** Fetch the listing's floorplan picture. Most listing sites allow it; some don't. */
+const floorplanTried = new Set();
+async function fetchListingFloorplan({ quiet = false } = {}) {
+  const url = flat && flat.floorplanUrl;
+  if (!url) return false;
+  floorplanTried.add(flat.id);
+  try {
+    const r = await fetch(url, { mode: 'cors', referrerPolicy: 'no-referrer' });
+    if (!r.ok) throw new Error(String(r.status));
+    const blob = await r.blob();
+    if (!/^image\//.test(blob.type)) throw new Error('not a picture');
+    return await useFloorplan(blob, { quiet });
+  } catch (err) {
+    console.warn('Floorplan not fetched', err);
+    if (!quiet) toast('The listing site doesn’t let the app fetch its floorplan. Open it, save the picture, then add it with “Add the floorplan picture”.');
+    return false;
+  }
 }
 function removeUnderlay() {
   if (underlayImg) forgetImage(underlayImg);
@@ -1113,8 +1151,11 @@ function renderLayout() {
           el('button', { type: 'button', class: 'btn small', onclick: () => { u.rot = (u.rot + 90) % 360; updateUnderlay(); commit(); } }, 'Turn it 90°'),
           el('button', { type: 'button', class: 'btn small ghost danger', onclick: removeUnderlay }, 'Remove'))) :
         el('div', { class: 'block' },
-          el('p', { class: 'note' }, 'Put the listing’s floorplan under the plan and trace over it. Use a screenshot or the image from the listing.'),
-          el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn small', onclick: addUnderlay }, 'Add the floorplan picture')))),
+          el('p', { class: 'note' }, flat.floorplanUrl ? 'This flat has the listing’s floorplan. Put it under the plan to check the rooms against it.' : 'Put the listing’s floorplan under the plan and trace over it. Use a screenshot or the image from the listing.'),
+          el('div', { class: 'row' },
+            flat.floorplanUrl ? el('button', { type: 'button', class: 'btn small primary', onclick: () => fetchListingFloorplan() }, 'Use the listing’s floorplan') : null,
+            el('button', { type: 'button', class: 'btn small', onclick: addUnderlay }, 'Add the floorplan picture'),
+            flat.floorplanUrl ? el('a', { class: 'btn small ghost', href: flat.floorplanUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open it ↗') : null))),
     el('div', { class: 'block' },
       el('h2', {}, 'Fixed fittings'),
       el('p', { class: 'note' }, 'Kitchen units, bathroom fittings, radiators and built-in cupboards. They go in the selected room; drag them into place.'),
@@ -1206,8 +1247,13 @@ function renderDetails() {
       el('div', { class: 'fields2' }, el('label', { class: 'f' }, 'Rent or price', el('span', { class: 'inp' }, prefs().currency || '£', rent)), field('Per', period)),
       field('Notes', notes),
       el('p', { class: 'note' }, `${flat.rooms.length} rooms, ${area.toFixed(1)} m² inside (${Math.round(area * 10.764)} sq ft).`)),
+    flat.photos.length ? el('div', { class: 'block' },
+      el('h2', {}, 'Listing photos ', el('span', { class: 'count' }, String(flat.photos.length))),
+      el('div', { class: 'photos' }, flat.photos.map((u, i) => el('a', { href: u, target: '_blank', rel: 'noopener noreferrer', 'aria-label': `Photo ${i + 1}, opens full size` },
+        el('img', { src: u, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: (e) => e.currentTarget.parentElement.remove() }))))) : null,
     el('div', { class: 'block' },
       el('h2', {}, 'Save and share'),
+      el('button', { type: 'button', class: 'btn wide', onclick: copyFlatLink }, 'Copy a link to this flat', el('small', {}, 'Opening the link adds the flat, with its rooms and furniture, to whoever opens it. Your own pictures stay here.')),
       el('button', { type: 'button', class: 'btn wide', onclick: () => exportFlat(flat) }, 'Save this flat as a file', el('small', {}, '.json with its plan, furniture and floorplan picture. Open it on the flats page.')),
       el('button', { type: 'button', class: 'btn primary wide', onclick: (e) => downloadModel(false, e.currentTarget) }, 'Download the empty flat', el('small', {}, '.glb 3D model, in metres')),
       el('button', { type: 'button', class: 'btn wide', onclick: (e) => downloadModel(true, e.currentTarget) }, 'Download the flat with your furniture', el('small', {}, 'Same model with everything you placed')),
@@ -1427,6 +1473,15 @@ function bindToolbar() {
 }
 
 /* ---------------------------------------------------------------- files */
+async function copyFlatLink() {
+  try {
+    const entries = db.catalogue.map((e) => ({ ...e, photo: '' })); // item photos would make the link far too long
+    const link = await flatLink(flatFile(flat, entries), location.href);
+    try { await navigator.clipboard.writeText(link); toast('Link copied. Opening it adds this flat to the planner.'); }
+    catch { window.prompt('Copy this link:', link); }
+  } catch (err) { console.error(err); toast('This browser can’t make the link.'); }
+}
+
 async function exportGLB(withFurniture) {
   const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js');
   const root = new THREE.Group(); root.name = withFurniture ? `${flat.name}, furnished` : flat.name;
