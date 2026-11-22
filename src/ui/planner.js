@@ -634,11 +634,16 @@ async function addUnderlay() {
     const { dataUrl, width, height } = await fileToImageDataUrl(f, 2000, 'image/jpeg', 0.86);
     if (underlayImg) forgetImage(underlayImg);
     await setPicture(planKey(flat.id), dataUrl); underlayImg = dataUrl;
+    // A flat that already knows where its picture goes (a replaced picture, or a flat file
+    // traced from the same floorplan) keeps that place and scale.
+    const known = flat.underlay;
     const [x0, z0, x1, z1] = flatBounds(flat, 0);
-    flat.underlay = { show: true, x: (x0 + x1) / 2, z: (z0 + z1) / 2, width: flat.rooms.length > 1 ? Math.max(4, (x1 - x0) * 1.2) : 10, aspect: height / width, rot: 0, opacity: 0.6 };
+    flat.underlay = known
+      ? { ...known, show: true, aspect: height / width }
+      : { show: true, x: (x0 + x1) / 2, z: (z0 + z1) / 2, width: flat.rooms.length > 1 ? Math.max(4, (x1 - x0) * 1.2) : 10, aspect: height / width, rot: 0, opacity: 0.6 };
     commit(); updateUnderlay(); renderLayout();
     if (mode !== 'plan') setMode('plan');
-    toast('Floorplan added. Set its width until the rooms on it match their sizes, then trace each room.');
+    toast(known ? 'Floorplan added in its saved place. Use “Move it” or the width if it needs nudging.' : 'Floorplan added. Set its width until the rooms on it match their sizes, then trace each room.');
   } catch { toast('That file isn’t a picture this browser can read.'); }
 }
 function removeUnderlay() {
