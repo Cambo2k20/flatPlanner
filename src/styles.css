@@ -160,7 +160,7 @@ label.f .hint { font-size: 11px; }
 .inp { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; padding: 0 8px; background: var(--bg); color: var(--muted); font-size: 12px; }
 .inp:focus-within { border-color: var(--accent); }
 .inp input, .inp select { width: 100%; min-width: 0; border: 0; background: transparent; padding: 6px 0; color: var(--ink); font: 500 14px var(--font-body); font-variant-numeric: tabular-nums; outline: none; }
-.f > input[type="text"], .f > input[type="url"], .f > input[type="number"], .f > select, .f > textarea { border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; background: var(--bg); color: var(--ink); font: 400 14px var(--font-body); min-width: 0; }
+.f > input[type="email"], .f > input[type="text"], .f > input[type="url"], .f > input[type="number"], .f > select, .f > textarea { border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; background: var(--bg); color: var(--ink); font: 400 14px var(--font-body); min-width: 0; }
 .f > textarea { min-height: 90px; resize: vertical; }
 .f > input:focus, .f > select:focus, .f > textarea:focus { border-color: var(--accent); outline: none; }
 input[type="text"].name { width: 100%; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 3px 6px; margin-left: -6px; font: 600 16px var(--font-body); color: var(--ink); }
@@ -275,3 +275,9 @@ details.more[open] summary { margin-bottom: 8px; }
   .search input { min-width: 0; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+/* Account controls fit the same narrow fields on iPhone Safari. */
+.account-email { overflow-wrap: anywhere; margin: 0; }
+[data-account] { max-width: 100%; white-space: normal; }
+
+.f > input[type="email"], .f > input[autocomplete="one-time-code"] { font-size: 16px; }

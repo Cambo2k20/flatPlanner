@@ -38,6 +38,9 @@ of the things you own or want to buy.
 - **Decorate**: wall colours per room or per wall, floors per room, ceiling and trim.
 - **Look around**: 3D, top view (like an architect's plan, cut at 1.2 m) and eye level,
   where you can walk through the doorways.
+- **Save across devices**: sign in with an email code to keep your flats, catalogue
+  and floorplan pictures in a private account. Keep editing offline; changes save
+  when you reconnect. See [cloud setup](docs/cloud-saving.md) to connect Supabase.
 - **Save files**: a flat (with its furniture and floorplan picture), the catalogue, or a
   backup of everything; a `.glb` 3D model with or without furniture; a picture of the
   view.
@@ -51,8 +54,9 @@ of the things you own or want to buy.
 
 The sample "Two-bedroom flat" is the flat from the original planner, rebuilt as data.
 
-Everything is kept in the browser (IndexedDB); nothing is sent anywhere. Save a backup
-file to move your flats to another device.
+Your work is kept in this browser (IndexedDB). With cloud saving configured, signing
+in also saves it to your private Supabase account for your other browsers and devices.
+Without sign-in, it stays local. Backup files work either way.
 
 ## Adding a flat from a listing, with Claude
 
@@ -70,7 +74,7 @@ node scripts/flat-link.mjs flat.json --out flat.flat.json           # check a tr
 
 ## Running it
 
-You need [Node.js](https://nodejs.org) 20 or later.
+You need [Node.js](https://nodejs.org) 22 or later.
 
 ```sh
 npm install
@@ -89,7 +93,8 @@ GitHub Actions).
 ```
 src/
   main.js              start-up and the three screens (#/, #/catalogue, #/flat/<id>/<tab>)
-  store.js             saving to IndexedDB (falls back to localStorage)
+  store.js             per-account IndexedDB copies (falls back to localStorage)
+  cloud.js             Supabase email sign-in and automatic cloud saving
   core/                plain data and logic, no 3D – this is what the tests cover
     flat-model.js      rooms, doors and windows, fittings, decoration; validation
     walls.js           works out the walls from the rooms
@@ -100,6 +105,7 @@ src/
     share.js           a flat packed into a link (#/add/…)
     sample-flat.js     the original two-bedroom flat, and the blank starting plan
     palette.js         paints, fabrics, floors, room types
+    sync.js            three-way merges and optimistic cloud saving
   three/               drawing with three.js
     furniture.js       the furniture and fitting models
     flat-mesh.js       walls (in three heights for the cut-away views), floors,
@@ -111,6 +117,7 @@ src/
     catalogue.js       the catalogue page and the item editor
     planner.js         the planner: views, dragging, the four tabs, the inspector
     widgets.js         dialogs, swatches, small form helpers
+    account.js         email-code sign-in and cloud save status
 scripts/               helpers for turning a listing into a flat (see above)
 tests/                 vitest unit tests
 ```
@@ -138,7 +145,6 @@ All sizes are metres, seen from above with x to the right and z down the screen.
 
 ## Ideas for next steps
 
-- Sync between devices (for example with Supabase) instead of backup files.
 - Several furniture layouts per flat, to compare side by side.
 - Comparing flats: which of your things fit where, room sizes side by side.
 - Angled walls, bay windows and stairs.

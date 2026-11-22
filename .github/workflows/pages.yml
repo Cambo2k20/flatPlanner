@@ -18,6 +18,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:browser
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +41,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+        env:
+          # Public browser configuration; row-level security protects each account.
+          # Repository variables can override this deployment's defaults.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://jdzhrgwqbuulolitvkia.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_VHH_R5PJifVH5LVu5sPD9w_GsOBtYz7' }}
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
@@ -36,7 +53,7 @@ jobs:
 
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: [build, browser-tests]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
