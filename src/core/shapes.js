@@ -30,7 +30,8 @@ export const SHAPES = {
   floorLamp: { label: 'Floor lamp', group: 'Lighting', room: 'living', w: 0.40, d: 0.40, h: 1.60, color: '#e8dfcf' },
   rug: { label: 'Rug', group: 'Decor', w: 2.00, d: 1.40, h: 0.012, color: '#b7a796', flat: true },
   plant: { label: 'Plant', group: 'Decor', w: 0.40, d: 0.40, h: 1.00, color: '#d9d3c7' },
-  art: { label: 'Picture or mirror', group: 'Decor', w: 0.60, d: 0.03, h: 0.80, elev: 1.25, color: '#d66b4a', wall: true },
+  art: { label: 'Picture or mirror', group: 'Decor', w: 0.60, d: 0.03, h: 0.80, elev: 1.25, color: '#d66b4a', wall: true, photo: true },
+  recordFrame: { label: 'Framed vinyl record', group: 'Decor', w: 0.34, d: 0.03, h: 0.34, elev: 1.35, color: '#151515', wall: true, photo: true },
   box: { label: 'Block (anything else)', group: 'Anything else', w: 1.00, d: 0.50, h: 0.75, color: '#9aa5ab' },
 
   // ---- fixed fittings, part of a flat

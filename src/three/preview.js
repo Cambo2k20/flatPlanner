@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildThing, disposeGeo } from './furniture.js';
+import { SHAPES } from '../core/shapes.js';
 
 const W = 320, H = 240;
 let renderer = null, scene, cam;
@@ -35,7 +36,7 @@ export function itemPreview(e) {
   if (cache.has(key)) return cache.get(key);
   if (!init()) return '';
   const it = { id: e.id || 'preview', shape: e.shape, w: e.w, d: e.d, h: e.h, color: e.color, name: e.name, mirror: false, rot: 0, x: 0, z: 0, elev: 0 };
-  const g = buildThing(it, { photo: e.shape === 'art' ? e.photo : '' });
+  const g = buildThing(it, { photo: SHAPES[e.shape] && SHAPES[e.shape].photo ? e.photo : '' });
   g.rotation.y = -0.55;
   scene.add(g);
   g.updateMatrixWorld(true);

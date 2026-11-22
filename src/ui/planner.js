@@ -288,7 +288,7 @@ function updateWalls(cam = activeCamera()) {
 
 /* ------------------------------------------------------- items and fittings */
 const itemObjs = new Map(), fixtureObjs = new Map();
-const photoOf = (it) => { if (it.shape !== 'art' || !it.cat) return ''; const e = findEntry(it.cat); return (e && e.photo) || ''; };
+const photoOf = (it) => { if (!SHAPES[it.shape]?.photo || !it.cat) return ''; const e = findEntry(it.cat); return (e && e.photo) || ''; };
 const lookKey = (it) => [it.shape, it.w, it.d, it.h, it.color, it.mirror ? 1 : 0, it.name, JSON.stringify(it.opts || null), photoOf(it).length].join('|');
 function syncObjs(list, root, map, idKey) {
   const ids = new Set(list.map((i) => i.id));

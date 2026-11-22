@@ -352,6 +352,30 @@ export const BUILD = {
     pic.position.set(0, h / 2, d / 2 + 0.001); g.add(pic);
     return g;
   },
+  recordFrame(it, ctx) {
+    // A record frame: a slim box frame round the sleeve, behind glass. With a photo the
+    // sleeve is your photo; without one, a black record with a coloured label.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const frame = stdMat(it.color, 0.5), fw = Math.min(0.02, Math.min(w, h) * 0.07);
+    const iw = Math.max(0.02, w - 2 * fw), ih = Math.max(0.02, h - 2 * fw);
+    g.add(B(w, fw, d, frame, 0, h - fw / 2, 0)); g.add(B(w, fw, d, frame, 0, fw / 2, 0));
+    g.add(B(fw, ih, d, frame, -w / 2 + fw / 2, h / 2, 0)); g.add(B(fw, ih, d, frame, w / 2 - fw / 2, h / 2, 0));
+    g.add(B(iw, ih, 0.004, stdMat('#1d1d1f', 0.9), 0, h / 2, -d / 2 + 0.002));
+    const z = d / 2 - 0.008, photo = ctx && ctx.photo;
+    if (photo) {
+      const pic = new THREE.Mesh(new THREE.PlaneGeometry(iw, ih), new THREE.MeshStandardMaterial({ map: imageTexture(photo), roughness: 0.7 }));
+      pic.position.set(0, h / 2, z); g.add(pic);
+    } else {
+      const r = Math.min(iw, ih) / 2 - 0.006;
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(r, 48), stdMat('#0b0b0c', 0.35, 0.1)); disc.position.set(0, h / 2, z); g.add(disc);
+      const groove = new THREE.Mesh(new THREE.RingGeometry(r * 0.55, r * 0.56, 48), stdMat('#2a2a2d', 0.4)); groove.position.set(0, h / 2, z + 0.0005); g.add(groove);
+      const label = new THREE.Mesh(new THREE.CircleGeometry(r * 0.33, 32), stdMat('#c4513f', 0.8)); label.position.set(0, h / 2, z + 0.001); g.add(label);
+      const hole = new THREE.Mesh(new THREE.CircleGeometry(r * 0.025, 12), stdMat('#0b0b0c', 0.8)); hole.position.set(0, h / 2, z + 0.0015); g.add(hole);
+    }
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(iw, ih), stdMat('#ffffff', 0.05, 0, { transparent: true, opacity: 0.08, depthWrite: false }));
+    glass.position.set(0, h / 2, d / 2 - 0.003); g.add(glass);
+    return g;
+  },
   box(it) { const g = new THREE.Group(); g.add(B(it.w, it.h, it.d, stdMat(it.color, 0.8), 0, it.h / 2, 0, 0.01)); return g; },
 
   /* ------------------------------------------------------- fixed fittings */
