@@ -33,9 +33,9 @@ function indexNear(arr, v) {
 
 // Signed inset in metres: positive moves the end jamb into the room, negative the start.
 export function doorwayFrame(o) {
-  const inset = o.op.jambInset || 0;
+  const inset = o.cornerFrame ? o.cornerFrame.end - o.cornerFrame.start : o.op.jambInset || 0;
   if (!inset) return o;
-  const start = Math.max(0, -inset), width = o.u1 - o.u0;
+  const start = o.cornerFrame ? o.cornerFrame.start : Math.max(0, -inset), width = o.u1 - o.u0;
   const len = Math.hypot(width, inset);
   const d = { x: (width * o.d.x + inset * o.n.x) / len, z: (width * o.d.z + inset * o.n.z) / len };
   const A = { x: o.p0.x + start * o.n.x, z: o.p0.z + start * o.n.z };
@@ -53,10 +53,25 @@ export function computeWalls(flat) {
     if (ri < 0) continue;
     const e = shapes[ri].edges[op.edge];
     if (!e) continue;
-    const u0 = clamp(op.pos, 0, Math.max(0, e.len - 0.05)), u1 = clamp(op.pos + op.width, u0 + 0.05, e.len);
+    // A door across the cut-out replaces both perpendicular sides of the notch.
+    // Cut the two wall runs, then place one frame between their outer endpoints.
+    const room = rooms[ri], notch = room.notch;
+    const edges = shapes[ri].edges;
+    let cornerFrame;
+    if (op.cornerDoor && notch && e.axis === 'x' && e.coord > room.z && e.coord < room.z + room.d) {
+      const next = edges[(e.i + 1) % edges.length], prev = edges[(e.i + edges.length - 1) % edges.length];
+      const mate = [prev, next].find((s) => s.coord > room.x && s.coord < room.x + room.w);
+      if (mate) {
+        cornerFrame = mate === next ? { start: 0, end: -mate.len } : { start: -mate.len, end: 0 };
+        const cut = { ...op, id: op.id + ':corner', kind: 'opening', edge: mate.i, pos: 0, width: mate.len, top: flat.ceiling };
+        ops.push({ id: cut.id, op: cut, kind: cut.kind, ri, room: room.id, edge: mate.i, e: mate, A: mate.a, d: mate.d, n: mate.n,
+          u0: 0, u1: mate.len, p0: mate.a, p1: mate.b, y0: 0, y1: flat.ceiling, t: 0, farRoom: null, ok: false, companion: op.id });
+      }
+    }
+    const u0 = cornerFrame ? 0 : clamp(op.pos, 0, Math.max(0, e.len - 0.05)), u1 = cornerFrame ? e.len : clamp(op.pos + op.width, u0 + 0.05, e.len);
     const P = (u) => ({ x: e.a.x + e.d.x * u, z: e.a.z + e.d.z * u });
     ops.push({
-      id: op.id, op, kind: op.kind, ri, room: rooms[ri].id, edge: op.edge, e, A: e.a, d: e.d, n: e.n, u0, u1, p0: P(u0), p1: P(u1),
+      id: op.id, op, cornerFrame, kind: op.kind, ri, room: rooms[ri].id, edge: op.edge, e, A: e.a, d: e.d, n: e.n, u0, u1, p0: P(u0), p1: P(u1),
       y0: op.kind === 'window' ? op.sill : 0, y1: op.top, t: 0, farRoom: null, ok: false,
     });
   }
@@ -95,6 +110,7 @@ export function computeWalls(flat) {
     const c0 = indexNear(A, a0), c1 = indexNear(A, a1), line = indexNear(B, e.coord);
     if (c0 < 0 || c1 <= c0 || line < 0) return;
     const out = alongX ? -e.n.z : -e.n.x, step = out < 0 ? -1 : 1, start = step < 0 ? line - 1 : line;
+    const available = (q) => tag[q] === -1 || (o.cornerFrame && ops[tag[q]].companion === o.id);
     const cell = (c, b) => (alongX ? at(c, b) : at(b, c));
     const inside = (b) => b >= 0 && b < (alongX ? nz : nx);
     // Walk outwards from the room through wall cells, column by column. The wall is as
@@ -102,7 +118,7 @@ export function computeWalls(flat) {
     let depth = Infinity, beyond = -2;
     for (let c = c0; c < c1; c++) {
       let b = start;
-      while (inside(b) && type[cell(c, b)] === -1 && tag[cell(c, b)] === -1) b += step;
+      while (inside(b) && type[cell(c, b)] === -1 && available(cell(c, b))) b += step;
       const far = step < 0 ? B[b + 1] : B[b], d = b === start ? 0 : Math.abs(far - e.coord);
       if (d < depth) { depth = d; beyond = inside(b) ? type[cell(c, b)] : -2; }
     }
@@ -113,7 +129,7 @@ export function computeWalls(flat) {
     for (let c = c0; c < c1; c++) {
       for (let bb = start; inside(bb); bb += step) {
         const q = cell(c, bb), farEdge = step < 0 ? B[bb] : B[bb + 1];
-        if (Math.abs(farEdge - e.coord) > depth + TOL || type[q] !== -1 || tag[q] !== -1) break;
+        if (Math.abs(farEdge - e.coord) > depth + TOL || type[q] !== -1 || !available(q)) break;
         tag[q] = k;
       }
     }
