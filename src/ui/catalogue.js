@@ -2,13 +2,15 @@
 import { dimsText, entryLook, newEntry, normalizeEntry, STATUS } from '../core/catalogue.js';
 import { catalogueFile, entriesFromCsv, entriesToCsv, mergeEntries, readFile } from '../core/files.js';
 import { FABRICS } from '../core/palette.js';
-import { CATEGORIES, FURNITURE_SHAPES, SHAPES } from '../core/shapes.js';
+import { CATEGORIES, FURNITURE_SHAPES, ITEM_ROOMS, SHAPES } from '../core/shapes.js';
 import { $, $$, cm, downloadBlob, el, fileToImageDataUrl, money, toast } from '../core/util.js';
 import { db, saveCatalogue, saveFlats, usageCounts } from '../store.js';
 import { itemPreview, queuePreview } from '../three/preview.js';
 import { confirmDialog, field, openDialog, pickFile, swatchRow } from './widgets.js';
 
-const view = { q: '', status: 'all', cat: '' };
+/* status: 'mine' (owned and to buy), 'owned', 'buy' or 'example'; null until first shown.
+   room: '*' for every room, else an ITEM_ROOMS key ('' is items for any room). */
+const view = { q: '', status: null, cat: '', room: '*' };
 
 export const categoriesInUse = () => [...new Set([...CATEGORIES, ...db.catalogue.map((e) => e.category)])].filter(Boolean);
 
@@ -55,6 +57,8 @@ export function itemDialog(entry, { isNew = false, inFlat = false } = {}) {
     shapeSel.value = e.shape;
     const catList = el('datalist', { id: 'dl-cats' }, categoriesInUse().map((c) => el('option', { value: c })));
     const category = el('input', { type: 'text', value: e.category, list: 'dl-cats', maxlength: 40 });
+    const roomSel = el('select', {}, Object.entries(ITEM_ROOMS).map(([k, label]) => el('option', { value: k }, label)));
+    roomSel.value = e.room;
     const num = (m, min, max) => el('input', { type: 'number', min, max, step: 1, inputmode: 'numeric', value: String(cm(m)) });
     const wIn = num(e.w, 2, 600), dIn = num(e.d, 1, 600), hIn = num(e.h, 1, 300), elevIn = num(e.elev, 0, 280);
     for (const i of [wIn, dIn, hIn]) i.addEventListener('input', () => { sizeTouched = true; });
@@ -87,6 +91,7 @@ export function itemDialog(entry, { isNew = false, inFlat = false } = {}) {
     shapeSel.addEventListener('change', () => {
       const old = SHAPES[e.shape], s = SHAPES[shapeSel.value];
       if (!category.value || category.value === old.group) category.value = s.group;
+      if (roomSel.value === (old.room || '')) roomSel.value = s.room || '';
       if (!sizeTouched) {
         wIn.value = cm(s.w); dIn.value = cm(s.d); hIn.value = cm(s.h); elevIn.value = cm(s.elev || 0);
         wall.checked = !!s.wall; e.color = s.color; paintColours();
@@ -103,7 +108,7 @@ export function itemDialog(entry, { isNew = false, inFlat = false } = {}) {
     colourBox.addEventListener('change', refreshPreview);
     photoIn.addEventListener('change', () => setTimeout(refreshPreview, 300));
     const collect = () => normalizeEntry({
-      ...e, name: name.value.trim() || SHAPES[shapeSel.value].label, shape: shapeSel.value, category: category.value.trim(),
+      ...e, name: name.value.trim() || SHAPES[shapeSel.value].label, shape: shapeSel.value, category: category.value.trim(), room: roomSel.value,
       w: +wIn.value / 100, d: +dIn.value / 100, h: +hIn.value / 100, elev: +elevIn.value / 100, wall: wall.checked,
       qty: +qty.value || 1, price: price.value === '' ? null : +price.value, url: url.value.trim(), notes: notes.value.trim(),
     });
@@ -113,7 +118,8 @@ export function itemDialog(entry, { isNew = false, inFlat = false } = {}) {
       el('div', { class: 'dlg-head' },
         el('div', { class: 'stack', style: { flex: 1 } }, el('h2', {}, isNew ? 'Add to your catalogue' : 'Edit item'), field('Name', name)),
         el('div', { class: 'dlg-shot' }, preview)),
-      el('div', { class: 'fields2' }, field('3D shape', shapeSel, 'How it’s drawn'), field('Group', category)), catList,
+      field('3D shape', shapeSel, 'How it’s drawn'),
+      el('div', { class: 'fields2' }, field('Group', category, 'What it is'), field('Room', roomSel, 'Where it usually goes')), catList,
       el('div', { class: 'fields3' },
         el('label', { class: 'f' }, 'Width', el('span', { class: 'inp' }, wIn, ' cm')),
         el('label', { class: 'f' }, 'Depth', el('span', { class: 'inp' }, dIn, ' cm')),
@@ -122,7 +128,8 @@ export function itemDialog(entry, { isNew = false, inFlat = false } = {}) {
         el('label', { class: 'f' }, 'Off the floor', el('span', { class: 'inp' }, elevIn, ' cm'), el('span', { class: 'hint' }, 'For shelves and pictures')),
         el('div', { class: 'checks', style: { alignContent: 'center' } }, el('label', {}, wall, 'Hangs on a wall'))),
       el('div', { class: 'block', style: { gap: '6px' } }, el('span', { class: 'lbl' }, 'Colour'), colourBox),
-      el('div', { class: 'block', style: { gap: '6px' } }, el('span', { class: 'lbl' }, 'Status'), status),
+      el('div', { class: 'block', style: { gap: '6px' } }, el('span', { class: 'lbl' }, 'Status'), status,
+        el('span', { class: 'hint' }, 'An example is a typical size to plan with, not something you own.')),
       el('div', { class: 'fields2' }, qtyField, el('label', { class: 'f' }, 'Price', el('span', { class: 'inp' }, currency, price))),
       field('Shop link', url),
       el('div', { class: 'f' }, 'Photo', el('div', { class: 'photo-row' }, prev,
@@ -154,13 +161,14 @@ function card(e, used) {
   const blob = el('span', { class: 'blob', style: { background: e.color } });
   const pic = el('div', { class: 'pic' },
     e.photo ? el('img', { src: e.photo, alt: '' }) : blob,
-    e.status === 'buy' ? el('span', { class: 'status tag' }, 'To buy') : null);
+    e.status === 'buy' ? el('span', { class: 'status tag' }, 'To buy') : e.status === 'example' ? el('span', { class: 'status tag muted' }, 'Example') : null);
   if (!e.photo) {
     const shot = el('img', { class: 'shot', alt: '', hidden: true, onload: () => blob.remove() });
     pic.prepend(shot);
     queuePreview(e, shot);
   }
   const bits = [e.category];
+  if (e.room) bits.push(ITEM_ROOMS[e.room]);
   if (e.price !== null) bits.push(money(e.price, currency));
   if (e.status === 'owned' && e.qty > 1) bits.push(`${e.qty} owned`);
   bits.push(used ? (used === 1 ? 'Placed once' : `Placed ${used} times`) : 'Not placed yet');
@@ -173,9 +181,20 @@ function card(e, used) {
   return b;
 }
 
+const STATUS_TEST = { mine: (e) => e.status !== 'example', owned: (e) => e.status === 'owned', buy: (e) => e.status === 'buy', example: (e) => e.status === 'example' };
+
 export function renderCatalogue() {
   const used = usageCounts();
   const q = view.q.trim().toLowerCase();
+  const mine = db.catalogue.filter(STATUS_TEST.mine);
+  const examples = db.catalogue.length - mine.length;
+  // Start on your own things; if you have none yet, start on the examples.
+  if (!view.status) view.status = mine.length || !examples ? 'mine' : 'example';
+  const rooms = Object.keys(ITEM_ROOMS).filter((k) => db.catalogue.some((e) => e.room === k));
+  if (view.room !== '*' && !rooms.includes(view.room)) view.room = '*';
+  const roomSel = $('#c-room');
+  roomSel.replaceChildren(el('option', { value: '*' }, 'All rooms'), ...rooms.map((k) => el('option', { value: k }, k ? ITEM_ROOMS[k] : 'For any room')));
+  roomSel.value = view.room;
   const cats = [...new Set(db.catalogue.map((e) => e.category))].sort((a, b) => {
     const ia = CATEGORIES.indexOf(a), ib = CATEGORIES.indexOf(b);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
@@ -185,15 +204,21 @@ export function renderCatalogue() {
     el('button', { type: 'button', class: 'chip', 'aria-pressed': String(!view.cat), onclick: () => { view.cat = ''; renderCatalogue(); } }, 'Everything'),
     ...cats.map((c) => el('button', { type: 'button', class: 'chip', 'aria-pressed': String(view.cat === c), onclick: () => { view.cat = c; renderCatalogue(); } }, c)));
   const list = db.catalogue
-    .filter((e) => (view.status === 'all' || e.status === view.status) && (!view.cat || e.category === view.cat))
-    .filter((e) => !q || `${e.name} ${e.category} ${e.notes} ${SHAPES[e.shape].label}`.toLowerCase().includes(q))
+    .filter((e) => STATUS_TEST[view.status](e) && (!view.cat || e.category === view.cat) && (view.room === '*' || e.room === view.room))
+    .filter((e) => !q || `${e.name} ${e.category} ${ITEM_ROOMS[e.room]} ${e.notes} ${SHAPES[e.shape].label}`.toLowerCase().includes(q))
     .sort((a, b) => (CATEGORIES.indexOf(a.category) + 1 || 99) - (CATEGORIES.indexOf(b.category) + 1 || 99) || a.name.localeCompare(b.name));
   const grid = $('#cat-grid');
   grid.replaceChildren(...list.map((e) => card(e, used.get(e.id) || 0)));
-  if (!list.length) grid.append(el('p', { class: 'note' }, db.catalogue.length ? 'Nothing matches.' : 'Your catalogue is empty. Add the things you own or want to buy.'));
+  if (!list.length) {
+    const empty = !db.catalogue.length ? 'Your catalogue is empty. Add the things you own or want to buy.'
+      : view.status === 'mine' && !mine.length ? 'Nothing of yours yet. Add an item, or open Examples, change one to match yours and set it to “I own this”.'
+        : 'Nothing matches.';
+    grid.append(el('p', { class: 'note' }, empty));
+  }
   const buy = db.catalogue.filter((e) => e.status === 'buy');
   const total = buy.reduce((s, e) => s + (e.price || 0), 0);
-  $('#c-summary').textContent = `${db.catalogue.length} items${buy.length ? ` · ${buy.length} to buy${total ? `, ${money(total, db.prefs.currency)}` : ''}` : ''}`;
+  $('#c-summary').textContent = [`${mine.length} of yours`, examples ? `${examples} ${examples === 1 ? 'example' : 'examples'}` : '',
+    buy.length ? `${buy.length} to buy${total ? `, ${money(total, db.prefs.currency)}` : ''}` : ''].filter(Boolean).join(' · ');
   $$('[data-status]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.status === view.status)));
 }
 
@@ -233,6 +258,7 @@ export function exportCatalogue() {
 export function bindCatalogueScreen() {
   $('#c-search').addEventListener('input', (e) => { view.q = e.target.value; renderCatalogue(); });
   $$('[data-status]').forEach((b) => b.addEventListener('click', () => { view.status = b.dataset.status; renderCatalogue(); }));
+  $('#c-room').addEventListener('change', (e) => { view.room = e.target.value; renderCatalogue(); });
   $('#c-new').addEventListener('click', async () => { await editEntryFlow(newEntry('sofa'), { isNew: true }); renderCatalogue(); });
   $('#c-import').addEventListener('click', async () => { await importCatalogueFile(); renderCatalogue(); });
   $('#c-export').addEventListener('click', exportCatalogue);
