@@ -445,16 +445,22 @@ function updateMeasure() {
   if (mode === 'plan' || tab === 'layout') {
     const y = mode === 'plan' ? H + 0.02 : 0.05;
     for (const r of flat.rooms) {
+      if (mode === 'plan' && focus === 'flat') {
+        const [x, z] = roomCentre(r);
+        specs.push({ text: r.name, p: [x, y, z], cls: 'roomtag' });
+        continue;
+      }
+      if (mode === 'plan' && r.id !== focus) continue;
       const [x0, z0] = roomRects(r)[0];
       specs.push({ text: `${r.name} · ${cm(r.w)} × ${cm(r.d)}`, p: [x0 + 0.1, y, z0 + 0.28], cls: 'roomtag', left: true });
     }
-    if (mode === 'plan') {
-      for (const it of flat.design.items) if (!isSel('item', it.id)) specs.push({ text: it.name, p: [it.x, y, it.z], cls: 'name' });
-      for (const dr of world.DOORS) if (dr.label === 'the front door') { const o = walls.openings.find((x) => x.id === dr.id); if (o) specs.push({ text: 'Front door', p: [(o.p0.x + o.p1.x) / 2 - o.n.x * (o.t + 0.25), y, (o.p0.z + o.p1.z) / 2 - o.n.z * (o.t + 0.25)], cls: 'tag' }); }
+    if (mode === 'plan' && focus !== 'flat') {
+      for (const it of flat.design.items) if (it.room === focus && !isSel('item', it.id)) specs.push({ text: it.name, p: [it.x, y, it.z], cls: 'name' });
+      for (const dr of world.DOORS) if (dr.label === 'the front door') { const o = walls.openings.find((x) => x.id === dr.id); if (o && flat.openings.some((op) => op.id === dr.id && op.room === focus)) specs.push({ text: 'Front door', p: [(o.p0.x + o.p1.x) / 2 - o.n.x * (o.t + 0.25), y, (o.p0.z + o.p1.z) / 2 - o.n.z * (o.t + 0.25)], cls: 'tag' }); }
     }
   }
   const it = selection && (selection.kind === 'item' || selection.kind === 'fixture') ? selectedTarget() : null;
-  if (it && prefs().measure) {
+  if (it && prefs().measure && (mode !== 'plan' || it.room === focus)) {
     const L = world.wallLimits(it, selection.kind === 'fixture'), b = L.b, y = mode === 'plan' ? H + 0.02 : Math.min(it.elev, 1.5) + 0.012;
     const gaps = [
       { v: b.minX - L.west, x0: L.west, z0: it.z, x1: b.minX, z1: it.z },
@@ -469,7 +475,7 @@ function updateMeasure() {
       specs.push({ text: `${cm(gp.v)} cm`, p: [(gp.x0 + gp.x1) / 2, y, (gp.z0 + gp.z1) / 2] });
     }
   }
-  if (selection && selection.kind === 'room') {
+  if (selection && selection.kind === 'room' && (mode !== 'plan' || selection.id === focus)) {
     const r = findRoom(flat, selection.id);
     if (r) {
       const y = mode === 'plan' ? H + 0.02 : 0.03, off = flat.outerWall + 0.25;
@@ -694,6 +700,10 @@ const firstHit = (objs, recursive = true) => ray.intersectObjects(objs, recursiv
 const idUp = (o, key) => { for (let p = o; p; p = p.parent) if (p.userData[key] !== undefined) return p.userData[key]; return null; };
 
 function pick() {
+  if (mode === 'plan' && focus === 'flat' && !(tab === 'layout' && underlayMove)) {
+    const floor = firstHit(meshes.floors, false);
+    if (floor) return { kind: 'focus', id: floor.object.userData.roomId };
+  }
   if (tab === 'layout') {
     if (underlayMove && underlayMesh && underlayMesh.visible) { const h = ray.intersectObject(underlayMesh, false)[0]; if (h) return { kind: 'underlay', point: h.point }; }
     const ho = firstHit(meshes.openingGroups), hf = firstHit(fixturesRoot.children);
@@ -721,7 +731,7 @@ function bindPointer() {
     setRay(e);
     const hit = pick();
     // a room has to be selected before dragging moves it, so dragging a floor still turns the view
-    if (hit && hit.kind !== 'decor' && !(hit.kind === 'room' && !isSel('room', hit.id))) {
+    if (hit && hit.kind !== 'focus' && hit.kind !== 'decor' && !(hit.kind === 'room' && !isSel('room', hit.id))) {
       if (hit.kind !== 'underlay' && !isSel(hit.kind, hit.id)) select(hit.kind, hit.id);
       drag = { kind: hit.kind, id: hit.id, pid: e.pointerId, plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -hit.point.y), moved: false, sx: e.clientX, sy: e.clientY, ...dragStart(hit) };
       orbit.enabled = false; planCtl.enabled = false;
@@ -750,6 +760,12 @@ function bindPointer() {
     } else if (press && e.pointerId === press.pid) {
       if (!press.moved && !cancelled) {
         if (mode === 'eye') { setRay(e); if (ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _p)) walkTo(_p.x, _p.z); }
+        else if (press.hit && press.hit.kind === 'focus') {
+          select(null);
+          setFocus(press.hit.id);
+          if (tab === 'layout') select('room', press.hit.id);
+          if (tab === 'decor') { decorRoom = press.hit.id; renderDecor(); }
+        }
         else if (press.hit && press.hit.kind === 'room') select('room', press.hit.id);
         else if (press.hit && press.hit.kind === 'decor') { decorRoom = press.hit.id; renderDecor(); const c = document.querySelector(`[data-room-card="${CSS.escape(decorRoom)}"]`); if (c) c.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }); }
         else select(null);
