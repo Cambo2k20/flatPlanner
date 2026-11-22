@@ -23,16 +23,6 @@ function coveGeometry(len) {
   s.moveTo(0, 0); s.lineTo(0.1, 0); s.lineTo(0.1, -0.012); s.quadraticCurveTo(0.018, -0.02, 0.012, -0.1); s.lineTo(0, -0.1); s.lineTo(0, 0);
   return new THREE.ExtrudeGeometry(s, { depth: len, bevelEnabled: false, curveSegments: 8 });
 }
-function subtractRanges([a, b], gaps) {
-  let segs = [[a, b]];
-  for (const [g0, g1] of gaps) {
-    const next = [];
-    for (const [s0, s1] of segs) { if (g1 <= s0 || g0 >= s1) next.push([s0, s1]); else { if (g0 > s0) next.push([s0, g0]); if (g1 < s1) next.push([g1, s1]); } }
-    segs = next;
-  }
-  return segs.filter(([s0, s1]) => s1 - s0 > 0.01);
-}
-
 /** A group laid out along a wall: local x runs along the wall, local +z points into the room. */
 function edgeFrame(A, d) {
   const g = new THREE.Group();
@@ -131,7 +121,7 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
   const wallRecs = [];
   for (const box of walls.boxes) {
     const op = box.opening ? opById[box.opening] : null;
-    const pieces = op ? [[0, op.y0], [op.y1, H]].filter(([a, b]) => b - a > 0.002) : [[0, H]];
+    const pieces = op?.companion ? [] : op ? [[0, op.y0], [op.y1, H]].filter(([a, b]) => b - a > 0.002) : [[0, H]];
     const w = box.x1 - box.x0, d = box.z1 - box.z0, cx = (box.x0 + box.x1) / 2, cz = (box.z0 + box.z1) / 2;
     const reveal = op ? wallKey(op.room, op.edge) : roomMats.ext;
     const mats = [faceMat(box.faces.e), faceMat(box.faces.w), null, null, faceMat(box.faces.s), faceMat(box.faces.n)];
@@ -156,10 +146,10 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
   const openingGroups = [], openingVisuals = [];
   const doorLabel = Object.fromEntries(world.DOORS.filter((d) => d.label).map((d) => [d.id, d.label]));
   for (const o of walls.openings) {
-    if (!o.ok) continue;
+    if (!o.ok || o.companion) continue;
     const frame = doorwayFrame(o);
     const fr = edgeFrame(frame.A, frame.d);
-    if (o.op.jambInset) {
+    if (o.cornerFrame || o.op.jambInset) {
       // Replace the straight lintel and connect the recessed jamb to the original wall.
       const recs = wallRecs.filter((rec) => rec.opening === o.id);
       for (const rec of recs) {
@@ -172,7 +162,7 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
       const lintel = edgeFrame(frame.A, frame.d);
       lintel.add(RB(frame.u1, H - o.y1, o.t, mat, frame.u1 / 2, (o.y1 + H) / 2, -o.t / 2));
       rec.full.add(lintel);
-      for (const [g, height] of [[rec.full, H], [rec.stub, STUB], [rec.plan, PLAN_CUT]]) {
+      if (!o.cornerFrame) for (const [g, height] of [[rec.full, H], [rec.stub, STUB], [rec.plan, PLAN_CUT]]) {
         const jamb = edgeFrame(end, o.d);
         jamb.add(RB(o.t, height, Math.abs(inset) + o.t, mat, Math.sign(inset) * o.t / 2, height / 2, (Math.abs(inset) - o.t) / 2));
         g.add(jamb);
@@ -219,29 +209,24 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
 
     const T = roomType(r);
     for (const e of roomEdges(r)) {
-      const gaps = [];
-      for (const o of walls.openings) {
-        if (!o.ok || o.kind === 'window') continue;
-        if (o.room === r.id && o.edge === e.i) { gaps.push([o.u0, o.u1]); continue; }
-        if (o.farRoom !== r.id) continue;
-        const far = [o.p0, o.p1].map((p) => ({ x: p.x - o.n.x * o.t, z: p.z - o.n.z * o.t }));
-        const along = Math.abs(o.d.x) > 0.5 ? 'x' : 'z';
-        if (along !== e.axis) continue;
-        const c = e.axis === 'x' ? far[0].z : far[0].x;
-        if (Math.abs(c - e.coord) > 0.003) continue;
-        const us = far.map((p) => (p.x - e.a.x) * e.d.x + (p.z - e.a.z) * e.d.z);
-        gaps.push([Math.min(...us), Math.max(...us)]);
+      const records = byEdge.get(`${r.id}:${e.i}`) || [];
+      const fr = edgeFrame(e.a, e.d), skirt = new THREE.Group(), cove = new THREE.Group();
+      for (const rec of records) {
+        const op = opById[rec.opening];
+        if (op?.cornerFrame || op?.companion) continue;
+        const box = rec.box;
+        const ends = e.axis === 'x' ? [box.x0, box.x1] : [box.z0, box.z1];
+        const along = ends.map((v) => (v - e.a[e.axis]) * e.d[e.axis]);
+        const lo = Math.max(0, Math.min(...along)), hi = Math.min(e.len, Math.max(...along));
+        if (hi - lo < 0.002) continue;
+        if (!T.noSkirt && (!op || op.kind === 'window')) skirt.add(RB(hi - lo, 0.12, 0.018, roomMats.trim, (lo + hi) / 2, 0.06, 0.009));
+        if (!T.noCove) {
+          const part = new THREE.Mesh(coveGeometry(hi - lo), roomMats.cove);
+          part.rotation.y = -Math.PI / 2; part.position.set(hi, H, 0); cove.add(part);
+        }
       }
-      const fr = edgeFrame(e.a, e.d), skirt = new THREE.Group();
-      fr.add(skirt);
-      if (!T.noSkirt) for (const [s0, s1] of subtractRanges([0, e.len], gaps)) skirt.add(RB(s1 - s0, 0.12, 0.018, roomMats.trim, (s0 + s1) / 2, 0.06, 0.009));
-      let cove = null;
-      if (!T.noCove) {
-        cove = new THREE.Mesh(coveGeometry(e.len), roomMats.cove);
-        cove.rotation.y = -Math.PI / 2; cove.position.set(e.len, H, 0);
-        fr.add(cove); coves.push(cove);
-      }
-      edgeTrims.push({ skirt, cove, recs: byEdge.get(`${r.id}:${e.i}`) || [] });
+      fr.add(skirt, cove); coves.push(cove);
+      edgeTrims.push({ skirt, cove, recs: records });
       rg.add(fr);
     }
   }
@@ -252,7 +237,13 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
     if (!o.ok || o.kind === 'window') continue;
     const into = o.kind === 'door' ? (o.op.swing === 'out' ? o.farRoom : o.room) : (o.farRoom || o.room);
     const R = rooms[into] || rooms[o.room];
-    if (o.op.jambInset && o.farRoom) {
+    if (o.cornerFrame) {
+      const frame = doorwayFrame(o);
+      const tip = o.cornerFrame.start ? frame.A : { x: frame.A.x + frame.d.x * frame.u1, z: frame.A.z + frame.d.z * frame.u1 };
+      const landing = new THREE.Mesh(polyGeo([o.p0, o.p1, tip], false), floorMat(floorFor(flat, rooms[o.room])));
+      landing.position.y = 0.001; landing.userData.roomId = o.room;
+      roomGroups[o.room].add(landing); floors.push(landing);
+    } else if (o.op.jambInset && o.farRoom) {
       const jamb = o.op.jambInset > 0 ? o.p1 : o.p0;
       const offset = Math.abs(o.op.jambInset);
       const tip = { x: jamb.x + offset * o.n.x, z: jamb.z + offset * o.n.z };

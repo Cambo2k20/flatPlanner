@@ -126,3 +126,21 @@ describe('other layouts', () => {
     expect(w.boxes).toEqual([]);
   });
 });
+
+it('cuts both sides of a notched corner and keeps a single diagonal door', async () => {
+  const { doorwayFrame } = await import('../src/core/walls.js');
+  const flat = normalizeFlat({ rooms: [
+    { id: 'room', x: 0, z: 0, w: 3, d: 4, notch: { corner: 'nw', w: 1, d: 1 } },
+    { id: 'hall', x: 0, z: 0, w: 0.9, d: 0.9 },
+  ], openings: [{ id: 'door', kind: 'door', room: 'room', edge: 4, cornerDoor: true }] });
+  const walls = computeWalls(flat), door = walls.openings.find((o) => o.id === 'door');
+  expect(door.ok).toBe(true);
+  expect(walls.openings.find((o) => o.companion === door.id).ok).toBe(true);
+  const frame = doorwayFrame(door);
+  expect(frame.A).toEqual({ x: 0, z: 1 });
+  expect(frame.A.x + frame.d.x * frame.u1).toBeCloseTo(1);
+  expect(frame.A.z + frame.d.z * frame.u1).toBeCloseTo(0);
+  const insideCorner = walls.boxes.filter((b) => b.x0 >= 0 && b.x1 <= 1 && b.z0 >= 0 && b.z1 <= 1);
+  expect(insideCorner.length).toBeGreaterThan(0);
+  expect(insideCorner.every((b) => b.opening)).toBe(true);
+});
