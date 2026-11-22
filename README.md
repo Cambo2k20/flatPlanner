@@ -31,9 +31,10 @@ of the things you own or want to buy.
   even into another room. Overlaps with furniture, fittings and door swings are
   flagged. The *Furnish* tab adds up what you'd have to buy and warns when you've
   placed more of something than you own.
-- **Manage your catalogue** on its own page: name, 3D shape, real size, colour,
-  whether you own it or want to buy it, how many you have, price, shop link, notes and
-  a photo. Every item gets a 3D preview at its real size and colour. Change a size
+- **Manage your catalogue** on its own page: name, 3D shape, group (what it is), room
+  (where it usually goes), real size, colour, whether you own it, want to buy it or it's
+  just an example, how many you have, price, shop link, notes and a photo. The starter
+  pieces are examples: typical sizes to plan with, kept apart from your own things. Every item gets a 3D preview at its real size and colour. Change a size
   here and it changes in every flat. Import and export it as a spreadsheet (`.csv`).
 - **Decorate**: wall colours per room or per wall, floors per room, ceiling and trim.
 - **Look around**: 3D, top view (like an architect's plan, cut at 1.2 m) and eye level,

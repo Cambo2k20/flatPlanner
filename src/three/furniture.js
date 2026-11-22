@@ -223,6 +223,26 @@ export const BUILD = {
     for (const s of [-1, 1]) { g.add(B(0.05, 0.075, 0.03, metalMat(), s * (w / 2 - 0.14), 0.0375, 0)); g.add(B(0.06, 0.012, d, metalMat(), s * (w / 2 - 0.14), 0.006, 0)); }
     return g;
   },
+  microwave(it) {
+    // A countertop microwave: door with a window on the left, dials on the right.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const body = stdMat(it.color, 0.35, 0.55), face = stdMat(shade(it.color, 0.82), 0.3, 0.5), knob = stdMat('#202326', 0.5);
+    const feet = 0.012, bodyH = Math.max(0.08, h - feet), mid = feet + bodyH / 2;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(C(0.012, 0.012, feet, knob, sx * (w / 2 - 0.05), feet / 2, sz * (d / 2 - 0.05), 10));
+    g.add(B(w, bodyH, d, body, 0, mid, 0, 0.012));
+    const panelW = clamp(w * 0.24, 0.07, 0.14), doorW = Math.max(0.1, w - panelW - 0.02), doorH = bodyH - 0.03;
+    const doorX = -w / 2 + 0.008 + doorW / 2;
+    g.add(B(doorW, doorH, 0.012, face, doorX, mid, d / 2 + 0.006, 0.006));
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(doorW * 0.7, doorH * 0.64), stdMat('#15181b', 0.12, 0.25));
+    glass.position.set(doorX - doorW * 0.07, mid, d / 2 + 0.0125); g.add(glass);
+    g.add(B(0.014, doorH * 0.62, 0.016, metalMat(), doorX + doorW / 2 - 0.03, mid, d / 2 + 0.02, 0.005));
+    const r = Math.min(panelW * 0.26, 0.022), px = w / 2 - panelW / 2 - 0.004;
+    for (const dy of [0.2, -0.2]) {
+      const dial = C(r, r, 0.016, knob, px, mid + bodyH * dy, d / 2 + 0.008, 24);
+      dial.rotation.x = Math.PI / 2; g.add(dial);
+    }
+    return g;
+  },
   floorLamp(it) {
     const { w, h } = it; const g = new THREE.Group(); const m = metalMat();
     g.add(C(w * 0.35, w * 0.38, 0.025, m, 0, 0.0125, 0, 32));

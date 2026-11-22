@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { dimsText, entryLook, newEntry, STATUS } from '../core/catalogue.js';
+import { dimsText, entryLook, newEntry, roomForEntry, STATUS } from '../core/catalogue.js';
 import {
   CORNERS, OPENING_KINDS, edgeEndNames, edgeLabel, findRoom, flatBounds, floorFor, newFixture, newOpening, newRoom, normalizeFlat,
   normalizeItem, paintFor, posFromScreenOffset, roomArea, roomBeside, roomCentre, roomEdges, roomPolygon, roomRects, roomType, screenOffset,
@@ -911,9 +911,7 @@ function duplicateSelected() {
 /** Which room new furniture goes in: the room you're looking at, else a sensible one. */
 function targetRoomFor(entry) {
   if (focus !== 'flat' && world.ROOMS[focus]) return focus;
-  const biggest = (list) => list.slice().sort((a, b) => roomArea(b) - roomArea(a))[0];
-  const bedroomish = entry && (entry.category === 'Bedroom' || ['bed', 'wardrobe'].includes(entry.shape));
-  const r = (bedroomish && biggest(flat.rooms.filter((x) => x.type === 'bedroom'))) || biggest(flat.rooms.filter((x) => x.type === 'living')) || biggest(flat.rooms);
+  const r = roomForEntry(flat.rooms, entry, roomArea);
   return r ? r.id : null;
 }
 function targetRoomForFitting(shape) {
@@ -927,6 +925,28 @@ function targetRoomForFitting(shape) {
   return r ? r.id : null;
 }
 
+/** Put a countertop appliance on the room's kitchen units, at the back, away from the
+    sink, hob and anything already standing there. False if the room has no units. */
+function onWorktop(it, rid) {
+  const units = flat.fixtures.filter((f) => f.shape === 'kitchenUnits' && f.room === rid && f.w >= it.w + 0.1);
+  let best = null;
+  for (const u of units) {
+    const busy = [u.opts?.sink, u.opts?.hob].filter((v) => v !== null && v !== undefined).map((v) => -u.w / 2 + u.w * v);
+    const a = -rad(u.rot), cos = Math.cos(a), sin = Math.sin(a);
+    const toWorld = (lx, lz) => [u.x + lx * cos + lz * sin, u.z - lx * sin + lz * cos];
+    for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const lx = -u.w / 2 + it.w / 2 + 0.05 + t * (u.w - it.w - 0.1), lz = -u.d / 2 + it.d / 2 + 0.03;
+      const [x, z] = toWorld(lx, lz);
+      const crowd = flat.design.items.filter((o) => o.room === rid && Math.abs(o.elev - (u.elev + u.h)) < 0.05 && Math.hypot(o.x - x, o.z - z) < (o.w + it.w) / 2);
+      const gap = Math.min(1, ...busy.map((b) => Math.abs(b - lx) - 0.3)) - crowd.length;
+      if (!best || gap > best.gap) best = { gap, x, z, rot: u.rot, elev: u.elev + u.h };
+    }
+  }
+  if (!best) return false;
+  Object.assign(it, { x: best.x, z: best.z, rot: best.rot, elev: best.elev });
+  return true;
+}
+
 function addItem(entry) {
   const rid = targetRoomFor(entry), R = rid && world.ROOMS[rid];
   if (!R) { toast('Add a room first, on the Layout tab.'); return; }
@@ -936,6 +956,8 @@ function addItem(entry) {
     const unit = flat.design.items.find((i) => (i.shape === 'tvUnit' || i.shape === 'sideboard') && i.room === rid);
     if (unit) { it.x = unit.x; it.z = unit.z; it.rot = unit.rot; it.elev = unit.elev + unit.h; world.resolve(it, false, R); }
     else world.backToWall(it, R);
+  } else if (SHAPES[it.shape].group === 'Appliances' && SHAPES[it.shape].elev && onWorktop(it, rid)) {
+    world.resolve(it, false, R);
   } else if (entry.wall) world.backToWall(it, R);
   else world.placeFree(it, R, flat.design.items);
   flat.design.items.push(it); syncItems(); select('item', it.id); commit();
@@ -1060,9 +1082,9 @@ function renderFurnish() {
 }
 function renderFurnishTarget() {
   if (!targetEl) return;
-  const main = findRoom(flat, targetRoomFor(null)), bed = findRoom(flat, targetRoomFor({ category: 'Bedroom' }));
+  const main = findRoom(flat, targetRoomFor(null)), bed = findRoom(flat, targetRoomFor({ room: 'bedroom' }));
   if (!main) { targetEl.textContent = 'a room (add one on the Layout tab)'; return; }
-  targetEl.textContent = `the ${main.name.toLowerCase()}` + (focus === 'flat' && bed && bed !== main ? ` (beds go in the ${bed.name.toLowerCase()})` : '');
+  targetEl.textContent = `the ${main.name.toLowerCase()}` + (focus === 'flat' && bed && bed !== main ? ` (things for another room go there, so beds go in the ${bed.name.toLowerCase()})` : '');
 }
 function renderCatalogList() {
   if (!catalogListEl) return;
@@ -1072,13 +1094,13 @@ function renderCatalogList() {
   const used = new Map(); for (const it of flat.design.items) used.set(it.cat, (used.get(it.cat) || 0) + 1);
   catalogListEl.replaceChildren(...groups.map((g) => el('div', { class: 'cat-group' },
     el('h3', {}, g),
-    el('div', { class: 'cat-grid' }, list.filter((e) => e.category === g).map((e) => el('button', {
+    el('div', { class: 'cat-grid' }, list.filter((e) => e.category === g).sort((a, b) => (a.status === 'example') - (b.status === 'example')).map((e) => el('button', {
       type: 'button', class: 'cat', 'aria-label': `Add ${e.name}`, title: e.notes || e.name, onclick: () => addItem(e),
     },
     el('span', { class: 'dot', style: { background: e.color } }),
     el('span', { class: 'cat-name' }, e.name),
     el('span', { class: 'cat-dim' }, dimsText(e)),
-    e.status === 'buy' ? el('span', { class: 'buy' }, `To buy${e.price !== null ? ` · ${money(e.price, prefs().currency)}` : ''}`) : null,
+    e.status === 'buy' ? el('span', { class: 'buy' }, `To buy${e.price !== null ? ` · ${money(e.price, prefs().currency)}` : ''}`) : e.status === 'example' ? el('span', { class: 'ex' }, 'Example') : null,
     used.get(e.id) ? el('span', { class: 'buy', style: { color: 'var(--muted)' } }, `${used.get(e.id)} in this flat`) : null))))));
   if (!list.length) catalogListEl.append(el('p', { class: 'note' }, db.catalogue.length ? 'Nothing matches.' : 'Your catalogue is empty.'));
 }
@@ -1102,21 +1124,23 @@ function renderPlaced() {
   }
   // what it would cost, and whether you've placed more than you own
   const counts = new Map(); for (const it of items) counts.set(it.cat, (counts.get(it.cat) || 0) + 1);
-  let buyN = 0, cost = 0, ownN = 0, unpriced = 0; const short = [];
+  let buyN = 0, cost = 0, ownN = 0, exN = 0, unpriced = 0; const short = [];
   for (const [cat, n] of counts) {
     const e = findEntry(cat); if (!e) continue;
     if (e.status === 'buy') { buyN += n; if (e.price !== null) cost += e.price * n; else unpriced += n; }
+    else if (e.status === 'example') exN += n;
     else { ownN += n; if (n > e.qty) short.push(`${n} × ${e.name}, you have ${e.qty}`); }
   }
-  placedEl.replaceChildren(
+  placedEl.replaceChildren(...[
     el('h2', {}, 'In this flat ', el('span', { class: 'count' }, String(items.length))),
     items.length ? ul : el('p', { class: 'note' }, 'Nothing yet. The flat is empty.'),
     items.length ? el('div', { class: 'totals' },
       el('span', {}, 'Things you own'), el('b', {}, String(ownN)),
       el('span', {}, 'Things to buy'), el('b', {}, String(buyN)),
+      exN ? el('span', {}, 'Examples, not yours yet') : null, exN ? el('b', {}, String(exN)) : null,
       buyN ? el('span', {}, 'Cost of what to buy') : null, buyN ? el('b', {}, money(cost, prefs().currency) + (unpriced ? ` + ${unpriced} unpriced` : '')) : null) : null,
     short.length ? el('p', { class: 'warnline' }, `Placed more than you own: ${short.join('; ')}.`) : null,
-    items.length ? el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn small ghost danger', onclick: () => { flat.design.items = []; select(null); syncItems(); commit(); toast('Furniture removed. Undo brings it back.'); } }, 'Remove all furniture')) : null);
+    items.length ? el('div', { class: 'row' }, el('button', { type: 'button', class: 'btn small ghost danger', onclick: () => { flat.design.items = []; select(null); syncItems(); commit(); toast('Furniture removed. Undo brings it back.'); } }, 'Remove all furniture')) : null].filter(Boolean));
 }
 
 /* ---- Layout */

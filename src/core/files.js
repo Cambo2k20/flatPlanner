@@ -4,7 +4,7 @@ import { entryLook, normalizeEntry, starterCatalogue, STARTER_PREFIX } from './c
 import { normalizeFlat, normalizeItem } from './flat-model.js';
 import { FLOORS } from './palette.js';
 import { sampleFlat } from './sample-flat.js';
-import { SHAPES, isShape } from './shapes.js';
+import { ITEM_ROOMS, SHAPES, isShape } from './shapes.js';
 import { clamp, hexOr, numOr, str, uid } from './util.js';
 
 export const APP_ID = 'flat-planner';
@@ -133,8 +133,16 @@ export function parseCsv(text) {
   return rows;
 }
 
-const CSV_COLUMNS = ['name', 'category', 'shape', 'width_cm', 'depth_cm', 'height_cm', 'off_floor_cm', 'colour', 'status', 'quantity', 'price', 'link', 'notes'];
+const CSV_COLUMNS = ['name', 'category', 'room', 'shape', 'width_cm', 'depth_cm', 'height_cm', 'off_floor_cm', 'colour', 'status', 'quantity', 'price', 'link', 'notes'];
 export const CSV_HEADER = CSV_COLUMNS.join(',');
+
+/** A room from a spreadsheet cell: a key (living), a label (Living room) or its first word. */
+function roomFromText(t) {
+  const v = String(t || '').trim().toLowerCase();
+  if (!v || v === 'any' || v === 'any room') return '';
+  for (const [k, label] of Object.entries(ITEM_ROOMS)) if (k && (v === k || v === label.toLowerCase() || label.toLowerCase().startsWith(v) || v.startsWith(k))) return k;
+  return '';
+}
 
 const SHAPE_WORDS = Object.fromEntries(Object.entries(SHAPES).filter(([, s]) => !s.fitting).flatMap(([k, s]) => [[k.toLowerCase(), k], [s.label.toLowerCase(), k]]));
 
@@ -148,12 +156,14 @@ export function entriesFromCsv(text) {
   return rows.slice(1).map((r) => {
     const shapeWord = col(r, 'shape', 'type').toLowerCase();
     const shape = SHAPE_WORDS[shapeWord] || 'box';
-    const status = /buy|want|wish/i.test(col(r, 'status')) ? 'buy' : 'owned';
+    const st = col(r, 'status');
+    const status = /buy|want|wish/i.test(st) ? 'buy' : /example|template|typical/i.test(st) ? 'example' : 'owned';
+    const roomCell = col(r, 'room');
     const price = col(r, 'price', 'cost').replace(/[^0-9.,]/g, '').replace(',', '.');
     let color = col(r, 'colour', 'color');
     if (color && !color.startsWith('#')) color = '#' + color;
     return normalizeEntry({
-      name: col(r, 'name', 'item'), category: col(r, 'category', 'group'), shape,
+      name: col(r, 'name', 'item'), category: col(r, 'category', 'group'), shape, ...(roomCell ? { room: roomFromText(roomCell) } : {}),
       w: cmv(col(r, 'width', 'w')), d: cmv(col(r, 'depth', 'd')), h: cmv(col(r, 'height', 'h')),
       elev: cmv(col(r, 'off_floor', 'elevation')), color, status, qty: col(r, 'quantity', 'qty') || 1,
       price: price === '' ? null : price, url: col(r, 'link', 'url'), notes: col(r, 'notes'),
@@ -165,8 +175,8 @@ export function entriesToCsv(catalogue) {
   const esc = (v) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const lines = [CSV_HEADER];
   for (const e of catalogue) {
-    lines.push([e.name, e.category, e.shape, Math.round(e.w * 100), Math.round(e.d * 100), Math.round(e.h * 100), Math.round(e.elev * 100), e.color,
-      e.status === 'buy' ? 'want to buy' : 'own', e.qty, e.price ?? '', e.url, e.notes].map(esc).join(','));
+    lines.push([e.name, e.category, ITEM_ROOMS[e.room] || ITEM_ROOMS[''], e.shape, Math.round(e.w * 100), Math.round(e.d * 100), Math.round(e.h * 100), Math.round(e.elev * 100), e.color,
+      e.status === 'buy' ? 'want to buy' : e.status === 'example' ? 'example' : 'own', e.qty, e.price ?? '', e.url, e.notes].map(esc).join(','));
   }
   return lines.join('\n') + '\n';
 }

@@ -53,15 +53,17 @@
   <main class="wrap">
     <div class="intro">
       <h1 class="big">My catalogue</h1>
-      <p class="lead">Your furniture and the things you’d like to buy, with their real sizes. Every flat you plan furnishes from this list, so change a size here and it changes everywhere.</p>
+      <p class="lead">Your furniture and the things you’d like to buy, with their real sizes. Every flat you plan furnishes from this list, so change a size here and it changes everywhere. Examples are typical sizes to start from.</p>
     </div>
     <div class="filters row">
       <label class="search"><span class="sr">Search</span><input id="c-search" type="search" placeholder="Search your catalogue"></label>
       <div class="seg" role="group" aria-label="Show">
-        <button type="button" data-status="all" aria-pressed="true">All</button>
+        <button type="button" data-status="mine" aria-pressed="true">Mine</button>
         <button type="button" data-status="owned" aria-pressed="false">I own</button>
         <button type="button" data-status="buy" aria-pressed="false">To buy</button>
+        <button type="button" data-status="example" aria-pressed="false">Examples</button>
       </div>
+      <label class="room-pick"><span class="sr">Room</span><select id="c-room"></select></label>
       <span id="c-summary" class="muted small"></span>
     </div>
     <div id="c-cats" class="chips"></div>
