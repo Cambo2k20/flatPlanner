@@ -4,6 +4,14 @@ Flat Planner can keep a private copy of your flats, catalogue, notes, preference
 floorplan pictures in Supabase. Sign in with the same email in each browser. Local
 editing and backup files still work without an account or a connection.
 
+## Hosted project
+
+The Pages build defaults to the `flatPlanner` Supabase project in Stockholm
+(`eu-north-1`): `https://jdzhrgwqbuulolitvkia.supabase.co`. Its publishable browser
+key is in the Pages workflow. These values are public; the database's row policies
+keep each account's workspace private. Actions repository variables can override
+both values for another deployment. Local development still uses `.env.local`.
+
 ## Connect a project
 
 1. Create or choose a Supabase project. Run [schema.sql](../supabase/schema.sql) in
@@ -29,7 +37,7 @@ editing and backup files still work without an account or a connection.
    values. The older public `anon` key also works as `VITE_SUPABASE_ANON_KEY` locally.
    **Never put a secret or service-role key in a Vite variable.** Vite variables are
    included in the public site; privacy comes from authentication and the row policies.
-4. In the GitHub repository, add two **Actions repository variables** under
+4. To override the hosted project's defaults, add two **Actions repository variables** under
    **Settings → Secrets and variables → Actions → Variables**:
 
    - `VITE_SUPABASE_URL`

@@ -8,7 +8,8 @@ create table if not exists public.planner_workspaces (
   updated_at timestamptz not null default now()
 );
 alter table public.planner_workspaces enable row level security;
-revoke all on public.planner_workspaces from anon;
+-- New tables may inherit broader default grants. RLS does not cover TRUNCATE.
+revoke all on public.planner_workspaces from PUBLIC, anon, authenticated;
 grant select, insert, update on public.planner_workspaces to authenticated;
 drop policy if exists "Read own workspace" on public.planner_workspaces;
 create policy "Read own workspace" on public.planner_workspaces for select to authenticated
