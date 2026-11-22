@@ -77,6 +77,11 @@ describe('catalogue', () => {
     expect(m.elev).toBeCloseTo(0.92);
   });
 
+  it('reads a desk on drawer units from a spreadsheet', () => {
+    const [d] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status\nMy desk,Desk on drawer units,140,60,75,own\n');
+    expect(d).toMatchObject({ shape: 'drawerDesk', category: 'Tables', room: 'study', w: 1.4, d: 0.6, h: 0.75, status: 'owned' });
+  });
+
   it('keeps rooms and examples through a spreadsheet', () => {
     const cat = [newEntry('bed', { name: 'Our bed' }), newEntry('box', { name: 'Bike', room: 'hall' }), newEntry('plant', { name: 'Fern', room: '' }), ...starterCatalogue().slice(0, 1)];
     const back = entriesFromCsv(entriesToCsv(cat));

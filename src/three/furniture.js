@@ -159,6 +159,32 @@ export const BUILD = {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(B(0.04, h - 0.03, 0.04, mm, sx * (w / 2 - 0.04), (h - 0.03) / 2, sz * (d / 2 - 0.04)));
     return g;
   },
+  drawerDesk(it) {
+    // A worktop resting on two five-drawer units (one if the desk is narrow), with
+    // small round pads between them, cut-out drawer handles and a cable hole.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const top = woodMat(it.color), body = stdMat('#f3f2ef', 0.7), recess = stdMat('#55585b', 0.9), line = stdMat('#d9d8d4', 0.8), pad = stdMat('#1c1d1f', 0.6);
+    const topT = Math.min(0.034, h * 0.1), padH = 0.015, pedH = Math.max(0.2, h - topT - padH);
+    const pw = Math.min(0.36, w * 0.4), pd = Math.min(0.58, d - 0.02), pz = d / 2 - 0.01 - pd / 2, inset = Math.min(0.04, w * 0.03);
+    g.add(B(w, topT, d, top, 0, h - topT / 2, 0, 0.004));
+    const hole = C(0.03, 0.03, 0.002, recess, -w / 2 + Math.min(0.12, w * 0.1), h + 0.001, 0, 24); g.add(hole);
+    const xs = w >= 1.0 ? [-w / 2 + inset + pw / 2, w / 2 - inset - pw / 2] : [w / 2 - inset - pw / 2];
+    const n = 5, gap = 0.004, fh = (pedH - gap * (n + 1)) / n;
+    const handle = new THREE.Shape(); handle.absarc(0, 0, 1, Math.PI, 2 * Math.PI, false); handle.lineTo(-1, 0);
+    const handleGeo = new THREE.ShapeGeometry(handle, 16);
+    for (const x of xs) {
+      g.add(B(pw, pedH, pd, body, x, pedH / 2, pz, 0.003));
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(C(0.025, 0.025, padH, pad, x + sx * (pw / 2 - 0.04), pedH + padH / 2, pz + sz * (pd / 2 - 0.05), 16));
+      for (let i = 0; i < n; i++) {
+        const y0 = gap + i * (fh + gap), yTop = y0 + fh;
+        if (i) g.add(RB(pw - 0.01, gap, 0.002, line, x, y0 - gap / 2, pz + pd / 2 + 0.001));
+        const cut = new THREE.Mesh(handleGeo, recess);
+        cut.scale.set(pw * 0.24, Math.min(0.022, fh * 0.2), 1);
+        cut.position.set(x, yTop - 0.004, pz + pd / 2 + 0.0015); g.add(cut);
+      }
+    }
+    return g;
+  },
   tvUnit(it) {
     const { w, d, h } = it; const g = new THREE.Group(); const m = woodMat(it.color), dark = stdMat('#1d1b19', 0.85);
     const legH = Math.min(0.12, h * 0.25), bodyH = h - legH;

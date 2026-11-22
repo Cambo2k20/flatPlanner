@@ -16,6 +16,7 @@ export const SHAPES = {
   coffeeTable: { label: 'Coffee table', group: 'Tables', room: 'living', w: 1.10, d: 0.60, h: 0.45, color: '#8b5e3c' },
   sideTable: { label: 'Round side table', group: 'Tables', room: 'living', w: 0.45, d: 0.45, h: 0.55, color: '#c19a6b' },
   diningTable: { label: 'Dining table', group: 'Tables', room: 'dining', w: 1.20, d: 0.80, h: 0.75, color: '#b98a5a' },
+  drawerDesk: { label: 'Desk on drawer units', group: 'Tables', room: 'study', w: 1.40, d: 0.60, h: 0.75, color: '#d4c0a1' },
   desk: { label: 'Desk', group: 'Tables', room: 'study', w: 1.20, d: 0.60, h: 0.75, color: '#d9c7ae' },
   tvUnit: { label: 'TV unit', group: 'Storage', room: 'living', w: 1.60, d: 0.40, h: 0.52, color: '#7b5b3e' },
   sideboard: { label: 'Sideboard', group: 'Storage', room: 'living', w: 1.60, d: 0.45, h: 0.80, color: '#e8e2d6' },
