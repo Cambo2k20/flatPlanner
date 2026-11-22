@@ -91,6 +91,12 @@ describe('catalogue', () => {
     expect(pc.w).toBeCloseTo(0.231); expect(pc.h).toBeCloseTo(0.463);
   });
 
+  it('reads a framed record from a spreadsheet and hangs it on the wall', () => {
+    const [r] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status\nA record,Framed vinyl record,34,3,34,own\n');
+    expect(r).toMatchObject({ shape: 'recordFrame', category: 'Decor', room: '', wall: true, status: 'owned' });
+    expect(r.elev).toBeCloseTo(1.35);
+  });
+
   it('keeps rooms and examples through a spreadsheet', () => {
     const cat = [newEntry('bed', { name: 'Our bed' }), newEntry('box', { name: 'Bike', room: 'hall' }), newEntry('plant', { name: 'Fern', room: '' }), ...starterCatalogue().slice(0, 1)];
     const back = entriesFromCsv(entriesToCsv(cat));
