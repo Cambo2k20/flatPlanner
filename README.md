@@ -8,6 +8,12 @@ walls, undo and `.glb` export. What's new is that the flat is no longer built in
 add flats from their listings, and you furnish every one of them from one catalogue
 of the things you own or want to buy.
 
+![The planner, furnishing the sample two-bedroom flat](docs/screenshots/planner-3d.png)
+
+| Your flats | Your catalogue | Tracing a new flat |
+| --- | --- | --- |
+| ![Flats list](docs/screenshots/flats.png) | ![Catalogue](docs/screenshots/catalogue.png) | ![Layout editor](docs/screenshots/layout.png) |
+
 ## What you can do
 
 - **Keep a list of flats** with their address, listing link, rent, status (interested,
