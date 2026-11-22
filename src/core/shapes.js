@@ -23,6 +23,7 @@ export const SHAPES = {
   cubeUnit: { label: 'Cube shelf', group: 'Storage', w: 0.77, d: 0.39, h: 0.77, color: '#f2f0eb' },
   wallShelf: { label: 'Wall shelf', group: 'Storage', w: 0.80, d: 0.20, h: 0.03, elev: 1.40, color: '#b98a5a', wall: true },
   tv: { label: 'TV', group: 'Electronics', room: 'living', w: 1.23, d: 0.25, h: 0.78, color: '#18191c' },
+  microwave: { label: 'Microwave', group: 'Appliances', room: 'kitchen', w: 0.44, d: 0.34, h: 0.26, elev: 0.92, color: '#c3c7cb' },
   floorLamp: { label: 'Floor lamp', group: 'Lighting', room: 'living', w: 0.40, d: 0.40, h: 1.60, color: '#e8dfcf' },
   rug: { label: 'Rug', group: 'Decor', w: 2.00, d: 1.40, h: 0.012, color: '#b7a796', flat: true },
   plant: { label: 'Plant', group: 'Decor', w: 0.40, d: 0.40, h: 1.00, color: '#d9d3c7' },
@@ -47,7 +48,7 @@ export const FITTING_SHAPES = Object.keys(SHAPES).filter((k) => SHAPES[k].fittin
 export const isShape = (k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(SHAPES, k);
 
 /* Groups say what a thing is; the room it's for is a separate field (ITEM_ROOMS). */
-export const CATEGORIES = ['Seating', 'Beds', 'Tables', 'Storage', 'Lighting', 'Electronics', 'Decor', 'Anything else'];
+export const CATEGORIES = ['Seating', 'Beds', 'Tables', 'Storage', 'Lighting', 'Electronics', 'Appliances', 'Decor', 'Anything else'];
 
 /* The rooms an item can be meant for. The keys are flat room types (palette.js); '' is
    any room. Furniture with no room of its own goes in the room you're looking at, else

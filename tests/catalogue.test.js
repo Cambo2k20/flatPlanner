@@ -71,6 +71,12 @@ describe('catalogue', () => {
     expect(roomForEntry([], { room: 'bedroom' }, area)).toBe(null);
   });
 
+  it('reads a microwave from a spreadsheet and puts it at worktop height', () => {
+    const [m] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status,price\nMorphy Richards 20L,microwave,44,34,26,want to buy,45\n');
+    expect(m).toMatchObject({ shape: 'microwave', category: 'Appliances', room: 'kitchen', status: 'buy', price: 45 });
+    expect(m.elev).toBeCloseTo(0.92);
+  });
+
   it('keeps rooms and examples through a spreadsheet', () => {
     const cat = [newEntry('bed', { name: 'Our bed' }), newEntry('box', { name: 'Bike', room: 'hall' }), newEntry('plant', { name: 'Fern', room: '' }), ...starterCatalogue().slice(0, 1)];
     const back = entriesFromCsv(entriesToCsv(cat));

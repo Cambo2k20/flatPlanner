@@ -925,6 +925,28 @@ function targetRoomForFitting(shape) {
   return r ? r.id : null;
 }
 
+/** Put a countertop appliance on the room's kitchen units, at the back, away from the
+    sink, hob and anything already standing there. False if the room has no units. */
+function onWorktop(it, rid) {
+  const units = flat.fixtures.filter((f) => f.shape === 'kitchenUnits' && f.room === rid && f.w >= it.w + 0.1);
+  let best = null;
+  for (const u of units) {
+    const busy = [u.opts?.sink, u.opts?.hob].filter((v) => v !== null && v !== undefined).map((v) => -u.w / 2 + u.w * v);
+    const a = -rad(u.rot), cos = Math.cos(a), sin = Math.sin(a);
+    const toWorld = (lx, lz) => [u.x + lx * cos + lz * sin, u.z - lx * sin + lz * cos];
+    for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      const lx = -u.w / 2 + it.w / 2 + 0.05 + t * (u.w - it.w - 0.1), lz = -u.d / 2 + it.d / 2 + 0.03;
+      const [x, z] = toWorld(lx, lz);
+      const crowd = flat.design.items.filter((o) => o.room === rid && Math.abs(o.elev - (u.elev + u.h)) < 0.05 && Math.hypot(o.x - x, o.z - z) < (o.w + it.w) / 2);
+      const gap = Math.min(1, ...busy.map((b) => Math.abs(b - lx) - 0.3)) - crowd.length;
+      if (!best || gap > best.gap) best = { gap, x, z, rot: u.rot, elev: u.elev + u.h };
+    }
+  }
+  if (!best) return false;
+  Object.assign(it, { x: best.x, z: best.z, rot: best.rot, elev: best.elev });
+  return true;
+}
+
 function addItem(entry) {
   const rid = targetRoomFor(entry), R = rid && world.ROOMS[rid];
   if (!R) { toast('Add a room first, on the Layout tab.'); return; }
@@ -934,6 +956,8 @@ function addItem(entry) {
     const unit = flat.design.items.find((i) => (i.shape === 'tvUnit' || i.shape === 'sideboard') && i.room === rid);
     if (unit) { it.x = unit.x; it.z = unit.z; it.rot = unit.rot; it.elev = unit.elev + unit.h; world.resolve(it, false, R); }
     else world.backToWall(it, R);
+  } else if (SHAPES[it.shape].group === 'Appliances' && SHAPES[it.shape].elev && onWorktop(it, rid)) {
+    world.resolve(it, false, R);
   } else if (entry.wall) world.backToWall(it, R);
   else world.placeFree(it, R, flat.design.items);
   flat.design.items.push(it); syncItems(); select('item', it.id); commit();
