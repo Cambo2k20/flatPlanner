@@ -2,10 +2,12 @@
    #/add/<payload>, a link that adds a whole flat (see core/share.js). */
 import './styles.css';
 import { $ } from './core/util.js';
-import { db, findFlat, flushAll, loadAll, onSaveError, storageWorks } from './store.js';
+import { db, findFlat, flushAll, loadAll, onSaveError, onWorkspaceChange, storageWorks } from './store.js';
 import { bindCatalogueScreen, renderCatalogue } from './ui/catalogue.js';
 import { addFromLink, bindHome, renderHome } from './ui/home.js';
 import { LINK_ROUTE } from './core/share.js';
+import { cloud } from './cloud.js';
+import { bindAccount } from './ui/account.js';
 import { closePlanner, debugView, openPlanner } from './ui/planner.js';
 
 const screens = { home: $('#screen-home'), catalogue: $('#screen-catalogue'), planner: $('#screen-planner') };
@@ -38,11 +40,13 @@ async function boot() {
     if (t) { t.textContent = 'Your changes couldn’t be saved in this browser. Save a backup file to keep them.'; t.classList.add('show'); }
   });
   if (!storageWorks()) console.warn('Storage is switched off: nothing will be kept after this page closes.');
-  bindHome(); bindCatalogueScreen();
+  bindHome(); bindCatalogueScreen(); bindAccount();
+  onWorkspaceChange(() => { closePlanner({ save: false }); route(); });
   window.addEventListener('hashchange', route);
   window.addEventListener('pagehide', flushAll);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAll(); });
   route();
   window.__planner = { db, view: debugView };
+  cloud.init().catch(console.error);
 }
 boot();
