@@ -1,6 +1,6 @@
 /* The catalogue screen, and the dialog for adding or editing one of your items. */
 import { dimsText, entryLook, newEntry, normalizeEntry, STATUS } from '../core/catalogue.js';
-import { catalogueFile, entriesFromCsv, entriesToCsv, mergeEntries, readFile } from '../core/files.js';
+import { catalogueFile, entriesToCsv, mergeEntries, readCatalogueCsv, readFile } from '../core/files.js';
 import { FABRICS } from '../core/palette.js';
 import { CATEGORIES, FURNITURE_SHAPES, ITEM_ROOMS, SHAPES } from '../core/shapes.js';
 import { $, $$, cm, downloadBlob, el, fileToImageDataUrl, money, toast } from '../core/util.js';
@@ -222,13 +222,43 @@ export function renderCatalogue() {
   $$('[data-status]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.status === view.status)));
 }
 
+function reviewImportShapes(entries, warnings) {
+  return openDialog((form, close) => {
+    const choices = warnings.map((w) => {
+      const select = el('select', { 'aria-label': `3D shape for row ${w.row}` },
+        el('option', { value: 'box' }, 'Block (keep as a box)'),
+        FURNITURE_SHAPES.filter((k) => k !== 'box').map((k) => el('option', { value: k }, SHAPES[k].label)));
+      const entry = entries[w.entryIndex];
+      form.append(el('div', { class: 'stack import-warning' },
+        el('b', {}, `Row ${w.row}: ${w.name || entry.name}`),
+        el('span', {}, w.shape ? `Shape “${w.shape}” is not supported.` : 'No 3D shape was supplied.'),
+        el('span', { class: 'note' }, `${dimsText(entry)} · ${ITEM_ROOMS[entry.room] || 'Any room'}`),
+        field('Draw this item as', select)));
+      return { index: w.entryIndex, select };
+    });
+    form.prepend(el('h2', {}, 'Check the imported shapes'),
+      el('p', {}, 'These items would appear as plain blocks. Choose a shape below, keep them as blocks, or cancel to correct your spreadsheet. Sizes and other details are kept.'));
+    form.append(el('div', { class: 'foot-btns' },
+      el('button', { type: 'button', class: 'btn', autofocus: true, onclick: () => close() }, 'Cancel'),
+      el('button', { type: 'button', class: 'btn primary', onclick: () => {
+        const reviewed = entries.slice();
+        for (const { index, select } of choices) reviewed[index] = normalizeEntry({ ...entries[index], shape: select.value });
+        close(reviewed);
+      } }, `Import ${entries.length} ${entries.length === 1 ? 'item' : 'items'}`)));
+  });
+}
+
 export async function importCatalogueFile() {
   const f = await pickFile('.csv,.json,text/csv,application/json');
   if (!f) return 0;
   try {
     const text = await f.text();
     let entries;
-    if (/\.csv$/i.test(f.name) || !text.trim().startsWith('{')) entries = entriesFromCsv(text);
+    if (/\.csv$/i.test(f.name) || !text.trim().startsWith('{')) {
+      const result = readCatalogueCsv(text);
+      entries = result.warnings.length ? await reviewImportShapes(result.entries, result.warnings) : result.entries;
+      if (!entries) return 0;
+    }
     else entries = readFile(JSON.parse(text), db.catalogue).entries;
     const { catalogue, added } = mergeEntries(db.catalogue, entries);
     db.catalogue = catalogue; saveCatalogue();
@@ -263,4 +293,3 @@ export function bindCatalogueScreen() {
   $('#c-import').addEventListener('click', async () => { await importCatalogueFile(); renderCatalogue(); });
   $('#c-export').addEventListener('click', exportCatalogue);
 }
-
