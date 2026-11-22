@@ -13,6 +13,9 @@ export function openDialog(render, { wide = false } = {}) {
     const close = (v) => { result = v; dlg.close(); };
     const form = el('form', { method: 'dialog', novalidate: true });
     form.addEventListener('submit', (e) => e.preventDefault());
+    // let dialogs pass optional parts as null, like el() does
+    const append = form.append.bind(form);
+    form.append = (...kids) => append(...kids.flat(Infinity).filter((k) => k !== null && k !== undefined && k !== false));
     dlg.replaceChildren(form);
     dlg.style.width = wide ? 'min(720px, calc(100vw - 24px))' : '';
     render(form, close);

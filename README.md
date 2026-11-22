@@ -41,6 +41,10 @@ of the things you own or want to buy.
 - **Save files**: a flat (with its furniture and floorplan picture), the catalogue, or a
   backup of everything; a `.glb` 3D model with or without furniture; a picture of the
   view.
+- **Add a flat from a link.** A link like `…/flatPlanner/#/add/…` carries a whole flat:
+  details, rooms, doors, windows, fittings, the listing's photos and where its floorplan
+  picture goes. Opening it asks, then adds the flat. "Copy a link to this flat" on the
+  Details tab makes one, to send a flat to someone else.
 - **Bring your old layout over.** *Open a file* on the flats page reads a layout saved
   from the original Flat 3D Planner (*Save layout file*), and rebuilds that flat with
   your sizes, paint, floors and furniture.
@@ -49,6 +53,20 @@ The sample "Two-bedroom flat" is the flat from the original planner, rebuilt as 
 
 Everything is kept in the browser (IndexedDB); nothing is sent anywhere. Save a backup
 file to move your flats to another device.
+
+## Adding a flat from a listing, with Claude
+
+Send Claude Code a listing link (Rightmove works best; ESPC and S1homes too; for ASPC
+and Zoopla, send screenshots of the floorplan and the room sizes). It follows
+`.claude/skills/listing-to-flat/SKILL.md`: reads the listing, measures the floorplan,
+scales it to the listed room sizes, and replies with a link that adds the flat, plus the
+floorplan picture to drop under it. The helpers it uses:
+
+```sh
+node scripts/rightmove-listing.mjs page.html            # a saved Rightmove page → address, price, rooms, photos, floorplan
+python3 scripts/floorplan-walls.py plan.jpg --rows 150 --cols 300   # wall positions in a floorplan image
+node scripts/flat-link.mjs flat.json --out flat.flat.json           # check a traced flat and make its link
+```
 
 ## Running it
 
@@ -79,6 +97,7 @@ src/
     catalogue.js       your catalogue items, and the starter set
     shapes.js          every 3D shape the planner can draw, with typical sizes
     files.js           flat, catalogue and backup files; CSV; old-planner layouts
+    share.js           a flat packed into a link (#/add/…)
     sample-flat.js     the original two-bedroom flat, and the blank starting plan
     palette.js         paints, fabrics, floors, room types
   three/               drawing with three.js
@@ -92,6 +111,7 @@ src/
     catalogue.js       the catalogue page and the item editor
     planner.js         the planner: views, dragging, the four tabs, the inspector
     widgets.js         dialogs, swatches, small form helpers
+scripts/               helpers for turning a listing into a flat (see above)
 tests/                 vitest unit tests
 ```
 

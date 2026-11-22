@@ -1,6 +1,7 @@
 /* The list of flats you're looking at, and adding a new one. */
 import { cloneFlat, roomPolygon } from '../core/flat-model.js';
 import { backupFile, entriesFromCsv, flatFile, mergeEntries, readFile } from '../core/files.js';
+import { unpackFlat } from '../core/share.js';
 import { FLAT_STATUS } from '../core/palette.js';
 import { blankFlat, sampleFlat } from '../core/sample-flat.js';
 import { $, downloadBlob, el, money, safeUrl, selectEl, slug, str, toast } from '../core/util.js';
@@ -53,7 +54,10 @@ export function flatSummary(f) {
 
 function flatCard(f) {
   const thumb = el('a', { class: 'thumb', href: `#/flat/${encodeURIComponent(f.id)}`, 'aria-label': `Open ${f.name}` }, planSvg(f));
-  getPicture(thumbKey(f.id)).then((src) => { if (src) thumb.replaceChildren(el('img', { src, alt: '' })); });
+  getPicture(thumbKey(f.id)).then((src) => {
+    if (src) thumb.replaceChildren(el('img', { src, alt: '' }));
+    else if (f.photos[0]) { const img = el('img', { src: f.photos[0], alt: '', referrerpolicy: 'no-referrer', onerror: () => img.replaceWith(planSvg(f)) }); thumb.replaceChildren(img); }
+  });
   const { items, buy, cost } = flatSummary(f);
   const url = safeUrl(f.url);
   const meta = [
@@ -182,6 +186,46 @@ export async function openAnyFile() {
     console.error(err);
     toast('That file isn’t one this planner can read.');
   }
+}
+
+/** A link made by "Copy a link to this flat" (or by Claude from a listing): ask, then add the flat. */
+export async function addFromLink(payload) {
+  let res;
+  try { res = readFile(await unpackFlat(payload), db.catalogue, new Set(db.flats.map((x) => x.id))); }
+  catch (err) {
+    console.error(err);
+    history.replaceState(null, '', '#/');
+    toast('That link doesn’t hold a flat this planner can read. It may have been cut short when it was copied.');
+    return;
+  }
+  const f = res.flats[0];
+  history.replaceState(null, '', '#/');
+  if (!f) { toast('That link doesn’t hold a flat.'); return; }
+  const same = db.flats.find((x) => x.name === f.name && x.address === f.address);
+  const ok = await openDialog((form, close) => {
+    const pic = el('div', { class: 'dlg-shot' }, planSvg(f));
+    if (f.photos[0]) { const img = el('img', { src: f.photos[0], alt: '', referrerpolicy: 'no-referrer', onerror: () => img.replaceWith(planSvg(f)) }); pic.replaceChildren(img); }
+    form.append(
+      el('div', { class: 'dlg-head' },
+        el('div', { class: 'stack', style: { flex: 1 } },
+          el('h2', {}, 'Add this flat?'),
+          el('strong', {}, f.name),
+          f.address ? el('span', { class: 'muted' }, f.address) : null,
+          f.rent !== null ? el('span', { class: 'muted' }, rentText(f)) : null),
+        pic),
+      el('p', { class: 'note' }, f.rooms.length ? `${f.rooms.length} rooms: ${f.rooms.map((r) => r.name).join(', ')}.` : 'No rooms yet.',
+        f.photos.length ? ` ${f.photos.length} listing photos.` : '', f.floorplanUrl ? ' The listing’s floorplan.' : ''),
+      same ? el('p', { class: 'warnline' }, `You already have a flat called “${same.name}”. This adds another one alongside it.`) : null,
+      el('div', { class: 'foot-btns' },
+        el('button', { type: 'button', class: 'btn', onclick: () => close(false) }, 'Cancel'),
+        el('button', { type: 'button', class: 'btn primary', autofocus: true, onclick: () => close(true) }, 'Add flat')));
+  });
+  if (!ok) { renderHome(); return; }
+  const { catalogue } = mergeEntries(db.catalogue, res.entries);
+  db.catalogue = catalogue; saveCatalogue();
+  f.updated = Date.now();
+  addFlat(f);
+  location.hash = `#/flat/${encodeURIComponent(f.id)}/layout`;
 }
 
 export async function saveBackup() {

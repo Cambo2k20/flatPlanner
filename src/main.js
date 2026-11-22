@@ -1,9 +1,11 @@
-/* Start-up and the three screens: #/ (your flats), #/catalogue and #/flat/<id>[/<tab>]. */
+/* Start-up and the screens: #/ (your flats), #/catalogue, #/flat/<id>[/<tab>], and
+   #/add/<payload>, a link that adds a whole flat (see core/share.js). */
 import './styles.css';
 import { $ } from './core/util.js';
 import { db, findFlat, flushAll, loadAll, onSaveError, storageWorks } from './store.js';
 import { bindCatalogueScreen, renderCatalogue } from './ui/catalogue.js';
-import { bindHome, renderHome } from './ui/home.js';
+import { addFromLink, bindHome, renderHome } from './ui/home.js';
+import { LINK_ROUTE } from './core/share.js';
 import { closePlanner, debugView, openPlanner } from './ui/planner.js';
 
 const screens = { home: $('#screen-home'), catalogue: $('#screen-catalogue'), planner: $('#screen-planner') };
@@ -11,6 +13,7 @@ function show(name) { for (const [k, s] of Object.entries(screens)) s.hidden = k
 
 function route() {
   const h = location.hash || '#/';
+  if (h.startsWith(LINK_ROUTE)) { closePlanner(); show('home'); renderHome(); addFromLink(h.slice(LINK_ROUTE.length)); return; }
   const m = h.match(/^#\/flat\/([^/]+)(?:\/(\w+))?/);
   if (m) {
     const flat = findFlat(decodeURIComponent(m[1]));
