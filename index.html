@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flat Planner</title>
+<meta name="description" content="Plan the flats you're interested in and furnish them in 3D from your own catalogue of furniture.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d5866'/%3E%3Cpath d='M7 8h18v16H7zM7 17h9M16 8v16' fill='none' stroke='white' stroke-width='2.4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+</head>
+<body>
+
+<!-- ============================================================ flats -->
+<div id="screen-home" class="screen page" hidden>
+  <header class="topbar">
+    <a class="brand" href="#/"><span class="logo" aria-hidden="true"></span>Flat Planner</a>
+    <nav class="row">
+      <a class="btn ghost" href="#/catalogue">My catalogue</a>
+      <button class="btn" id="h-open" type="button">Open a file</button>
+      <button class="btn primary" id="h-new" type="button">Add a flat</button>
+    </nav>
+  </header>
+  <main class="wrap">
+    <div class="intro">
+      <h1 class="big">Flats you’re looking at</h1>
+      <p class="lead">Add a flat from its listing, trace the rooms from the floorplan, then furnish it in 3D with the things you own or want to buy.</p>
+    </div>
+    <div id="flat-grid" class="grid flats"></div>
+    <footer class="foot">
+      <p class="note">Everything is kept in this browser. Save a backup file now and then, or to move your flats and catalogue to another device.</p>
+      <div class="row">
+        <button class="btn small" id="h-backup" type="button">Save a backup of everything</button>
+      </div>
+    </footer>
+  </main>
+</div>
+
+<!-- ======================================================== catalogue -->
+<div id="screen-catalogue" class="screen page" hidden>
+  <header class="topbar">
+    <a class="brand" href="#/"><span class="logo" aria-hidden="true"></span>Flat Planner</a>
+    <nav class="row">
+      <a class="btn ghost" href="#/">My flats</a>
+      <button class="btn" id="c-import" type="button">Import</button>
+      <button class="btn" id="c-export" type="button">Export</button>
+      <button class="btn primary" id="c-new" type="button">Add an item</button>
+    </nav>
+  </header>
+  <main class="wrap">
+    <div class="intro">
+      <h1 class="big">My catalogue</h1>
+      <p class="lead">Your furniture and the things you’d like to buy, with their real sizes. Every flat you plan furnishes from this list, so change a size here and it changes everywhere.</p>
+    </div>
+    <div class="filters row">
+      <label class="search"><span class="sr">Search</span><input id="c-search" type="search" placeholder="Search your catalogue"></label>
+      <div class="seg" role="group" aria-label="Show">
+        <button type="button" data-status="all" aria-pressed="true">All</button>
+        <button type="button" data-status="owned" aria-pressed="false">I own</button>
+        <button type="button" data-status="buy" aria-pressed="false">To buy</button>
+      </div>
+      <span id="c-summary" class="muted small"></span>
+    </div>
+    <div id="c-cats" class="chips"></div>
+    <div id="cat-grid" class="grid items"></div>
+  </main>
+</div>
+
+<!-- ========================================================== planner -->
+<div id="screen-planner" class="screen" hidden>
+  <div id="app">
+    <aside id="panel" aria-label="Planner controls">
+      <header class="ph">
+        <a class="back" href="#/">← My flats</a>
+        <h1 id="p-title">Flat</h1>
+        <p class="sub" id="p-sub"></p>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Panels">
+        <button role="tab" id="tb-furnish" aria-selected="true" aria-controls="tab-furnish" data-tab="furnish">Furnish</button>
+        <button role="tab" id="tb-layout" aria-selected="false" aria-controls="tab-layout" data-tab="layout" tabindex="-1">Layout</button>
+        <button role="tab" id="tb-decor" aria-selected="false" aria-controls="tab-decor" data-tab="decor" tabindex="-1">Decor</button>
+        <button role="tab" id="tb-details" aria-selected="false" aria-controls="tab-details" data-tab="details" tabindex="-1">Details</button>
+      </div>
+      <section id="tab-furnish" role="tabpanel" aria-labelledby="tb-furnish"></section>
+      <section id="tab-layout" role="tabpanel" aria-labelledby="tb-layout" hidden></section>
+      <section id="tab-decor" role="tabpanel" aria-labelledby="tb-decor" hidden></section>
+      <section id="tab-details" role="tabpanel" aria-labelledby="tb-details" hidden></section>
+    </aside>
+
+    <main id="stage">
+      <canvas id="c" aria-label="3D view of the flat"></canvas>
+      <div id="labels" aria-hidden="true"></div>
+      <div class="toolbar tl">
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" data-view="orbit" aria-pressed="true">3D</button>
+          <button type="button" data-view="plan" aria-pressed="false">Top</button>
+          <button type="button" data-view="eye" aria-pressed="false">Eye level</button>
+        </div>
+        <label class="tsel" for="focus" id="focus-wrap"><span>Show</span><select id="focus"></select></label>
+        <label class="tsel" for="eye-where" id="eye-wrap" hidden><span>Stand in</span><select id="eye-where"></select></label>
+        <button class="tbtn" id="btn-reset-view" type="button">Reset view</button>
+      </div>
+      <div class="toolbar tr">
+        <button class="pill" id="clash-chip" type="button" title="Furniture that overlaps something">No overlaps</button>
+        <button class="tbtn" id="btn-undo" type="button" title="Undo (Ctrl+Z)" disabled>Undo</button>
+        <button class="tbtn" id="btn-redo" type="button" title="Redo (Ctrl+Shift+Z)" disabled>Redo</button>
+      </div>
+      <div id="inspector" class="card" hidden aria-label="Selected"></div>
+      <p id="hint" class="hint-bar"></p>
+      <div id="loadfail" hidden><p>The 3D view couldn’t start. This browser may have WebGL switched off.</p></div>
+    </main>
+  </div>
+</div>
+
+<dialog id="dlg" class="dlg"></dialog>
+<input type="file" id="file-any" accept=".json,.csv,application/json,text/csv" hidden>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
