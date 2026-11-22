@@ -30,6 +30,9 @@ const STARTER = [
   ['cubeUnit', 'cubeUnit', 'Cube shelf', 'Storage', 0.77, 0.39, 0.77, '#f2f0eb'],
   ['wallShelf', 'wallShelf', 'Wall shelf', 'Storage', 0.80, 0.20, 0.03, '#b98a5a'],
   ['tv', 'tv', 'TV, 55 inch', 'Electronics', 1.23, 0.25, 0.78, '#18191c'],
+  ['monitor', 'monitor', 'Computer monitor, 24 inch', 'Electronics', 0.54, 0.19, 0.41, '#232528'],
+  ['shoeCabinet', 'sideboard', 'Shoe cabinet', 'Storage', 0.80, 0.30, 1.00, '#f0ede6', 'hall'],
+  ['sofaBed', 'sofa', 'Sofa bed', 'Seating', 1.90, 0.90, 0.85, '#6f7a80'],
   ['microwave', 'microwave', 'Microwave', 'Appliances', 0.44, 0.34, 0.26, '#c3c7cb'],
   ['floorLamp', 'floorLamp', 'Floor lamp', 'Lighting', 0.40, 0.40, 1.60, '#e8dfcf'],
   ['rug', 'rug', 'Rug', 'Decor', 2.00, 1.40, 0.012, '#b7a796'],
@@ -44,8 +47,8 @@ const STARTER_BY_ID = Object.fromEntries(STARTER.map((row) => [STARTER_PREFIX + 
 
 export function starterCatalogue() {
   const now = Date.now();
-  return STARTER.map(([kind, shape, name, category, w, d, h, color], i) => normalizeEntry({
-    id: STARTER_PREFIX + kind, name, category, shape, w, d, h, color,
+  return STARTER.map(([kind, shape, name, category, w, d, h, color, room], i) => normalizeEntry({
+    id: STARTER_PREFIX + kind, name, category, shape, w, d, h, color, ...(room === undefined ? {} : { room }),
     elev: SHAPES[shape].elev || 0, wall: !!SHAPES[shape].wall, status: 'example', qty: 1,
     notes: STARTER_NOTE, starter: true, created: now + i, v: ENTRY_VERSION,
   }));

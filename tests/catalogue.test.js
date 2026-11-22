@@ -19,6 +19,9 @@ describe('catalogue', () => {
     expect(by.floorLamp.category).toBe('Lighting');
     expect(by.desk.room).toBe('study');
     expect(by.plant.room).toBe('');
+    expect(by.shoeCabinet).toMatchObject({ shape: 'sideboard', room: 'hall' });
+    expect(by.monitor).toMatchObject({ shape: 'monitor', category: 'Electronics', room: 'study' });
+    expect(by.monitor.elev).toBeCloseTo(0.75);
     expect(cat.some((e) => e.category === 'Bedroom' || e.category === 'Screen and lights')).toBe(false);
   });
 
@@ -75,6 +78,17 @@ describe('catalogue', () => {
     const [m] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status,price\nMorphy Richards 20L,microwave,44,34,26,want to buy,45\n');
     expect(m).toMatchObject({ shape: 'microwave', category: 'Appliances', room: 'kitchen', status: 'buy', price: 45 });
     expect(m.elev).toBeCloseTo(0.92);
+  });
+
+  it('reads a desk on drawer units from a spreadsheet', () => {
+    const [d] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status\nMy desk,Desk on drawer units,140,60,75,own\n');
+    expect(d).toMatchObject({ shape: 'drawerDesk', category: 'Tables', room: 'study', w: 1.4, d: 0.6, h: 0.75, status: 'owned' });
+  });
+
+  it('reads a PC tower from a spreadsheet', () => {
+    const [pc] = entriesFromCsv('name,shape,width_cm,depth_cm,height_cm,status\nMy PC,PC tower,23.1,45,46.3,own\n');
+    expect(pc).toMatchObject({ shape: 'pcTower', category: 'Electronics', room: 'study', status: 'owned' });
+    expect(pc.w).toBeCloseTo(0.231); expect(pc.h).toBeCloseTo(0.463);
   });
 
   it('keeps rooms and examples through a spreadsheet', () => {

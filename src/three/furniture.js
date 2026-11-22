@@ -159,6 +159,32 @@ export const BUILD = {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(B(0.04, h - 0.03, 0.04, mm, sx * (w / 2 - 0.04), (h - 0.03) / 2, sz * (d / 2 - 0.04)));
     return g;
   },
+  drawerDesk(it) {
+    // A worktop resting on two five-drawer units (one if the desk is narrow), with
+    // small round pads between them, cut-out drawer handles and a cable hole.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const top = woodMat(it.color), body = stdMat('#f3f2ef', 0.7), recess = stdMat('#55585b', 0.9), line = stdMat('#d9d8d4', 0.8), pad = stdMat('#1c1d1f', 0.6);
+    const topT = Math.min(0.034, h * 0.1), padH = 0.015, pedH = Math.max(0.2, h - topT - padH);
+    const pw = Math.min(0.36, w * 0.4), pd = Math.min(0.58, d - 0.02), pz = d / 2 - 0.01 - pd / 2, inset = Math.min(0.04, w * 0.03);
+    g.add(B(w, topT, d, top, 0, h - topT / 2, 0, 0.004));
+    const hole = C(0.03, 0.03, 0.002, recess, -w / 2 + Math.min(0.12, w * 0.1), h + 0.001, 0, 24); g.add(hole);
+    const xs = w >= 1.0 ? [-w / 2 + inset + pw / 2, w / 2 - inset - pw / 2] : [w / 2 - inset - pw / 2];
+    const n = 5, gap = 0.004, fh = (pedH - gap * (n + 1)) / n;
+    const handle = new THREE.Shape(); handle.absarc(0, 0, 1, Math.PI, 2 * Math.PI, false); handle.lineTo(-1, 0);
+    const handleGeo = new THREE.ShapeGeometry(handle, 16);
+    for (const x of xs) {
+      g.add(B(pw, pedH, pd, body, x, pedH / 2, pz, 0.003));
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(C(0.025, 0.025, padH, pad, x + sx * (pw / 2 - 0.04), pedH + padH / 2, pz + sz * (pd / 2 - 0.05), 16));
+      for (let i = 0; i < n; i++) {
+        const y0 = gap + i * (fh + gap), yTop = y0 + fh;
+        if (i) g.add(RB(pw - 0.01, gap, 0.002, line, x, y0 - gap / 2, pz + pd / 2 + 0.001));
+        const cut = new THREE.Mesh(handleGeo, recess);
+        cut.scale.set(pw * 0.24, Math.min(0.022, fh * 0.2), 1);
+        cut.position.set(x, yTop - 0.004, pz + pd / 2 + 0.0015); g.add(cut);
+      }
+    }
+    return g;
+  },
   tvUnit(it) {
     const { w, d, h } = it; const g = new THREE.Group(); const m = woodMat(it.color), dark = stdMat('#1d1b19', 0.85);
     const legH = Math.min(0.12, h * 0.25), bodyH = h - legH;
@@ -221,6 +247,53 @@ export const BUILD = {
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.02, panelH - 0.02), stdMat('#06080a', 0.15, 0.3));
     screen.position.set(0, 0.07 + panelH / 2, 0.0231); g.add(screen);
     for (const s of [-1, 1]) { g.add(B(0.05, 0.075, 0.03, metalMat(), s * (w / 2 - 0.14), 0.0375, 0)); g.add(B(0.06, 0.012, d, metalMat(), s * (w / 2 - 0.14), 0.006, 0)); }
+    return g;
+  },
+  monitor(it) {
+    // A screen on a single stand: a flat base, a neck at the back, the panel above.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const body = stdMat(it.color, 0.45), screenMat = stdMat('#06080a', 0.15, 0.3);
+    const ph = Math.min(h * 0.8, w * 0.62), pt = 0.022, pz = -d / 2 + Math.min(0.06, d * 0.35);
+    g.add(B(Math.min(w * 0.42, 0.26), 0.014, d, body, 0, 0.007, 0, 0.006));
+    g.add(B(0.045, h - ph * 0.5, 0.025, body, 0, (h - ph * 0.5) / 2, pz - pt / 2 - 0.012, 0.006));
+    g.add(B(w, ph, pt, body, 0, h - ph / 2, pz, 0.006));
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.016, ph - 0.03), screenMat);
+    screen.position.set(0, h - ph / 2 + 0.006, pz + pt / 2 + 0.0005); g.add(screen);
+    return g;
+  },
+  pcTower(it) {
+    // A windowed tower case standing on its feet, front facing +z: glass on the left
+    // side (the right when mirrored) showing the parts inside, a mesh front with two
+    // light strips, and ports on top.
+    const { w, d, h } = it; const g = new THREE.Group();
+    const shell = stdMat(it.color, 0.55), mesh = stdMat(shade(it.color, 0.9), 0.95), dark = stdMat('#1b1c1e', 0.6), board = stdMat('#2a2d31', 0.7);
+    const glow = stdMat('#7fe9ff', 0.4, 0, { emissive: '#3fd6ff', emissiveIntensity: 1.4 });
+    const feet = Math.min(0.014, h * 0.04), bh = h - feet, mid = feet + bh / 2, t = 0.006;
+    const fd = 0.03, bd = d - fd, bz = -fd / 2, bar = Math.min(0.03, d * 0.07);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(B(Math.min(0.05, w * 0.2), feet, 0.06, dark, sx * (w / 2 - 0.035), feet / 2, sz * (d / 2 - 0.06)));
+    // the shell: right side, top, bottom and back, with a white frame round the window
+    g.add(B(t, bh, bd, shell, w / 2 - t / 2, mid, bz));
+    g.add(B(w, t, bd, shell, 0, h - t / 2, bz)); g.add(B(w, t, bd, shell, 0, feet + t / 2, bz));
+    g.add(B(w, bh, t, shell, 0, mid, -d / 2 + t / 2));
+    for (const y of [feet + bar / 2, h - bar / 2]) g.add(B(t, bar, bd, shell, -w / 2 + t / 2, y, bz));
+    for (const z of [-d / 2 + bar / 2, d / 2 - fd - bar / 2]) g.add(B(t, bh, bar, shell, -w / 2 + t / 2, mid, z));
+    // inside: motherboard, power-supply cover, graphics card, cooler, memory, rear fan
+    const ih = bh - 2 * t, y0 = feet + t;
+    g.add(B(0.004, ih * 0.7, bd - 0.04, board, w / 2 - t - 0.002, y0 + ih * 0.62, bz));
+    g.add(B(w - 2 * t, ih * 0.24, bd - 0.01, shell, 0, y0 + ih * 0.12, bz));
+    g.add(B(w * 0.5, 0.045, bd * 0.62, stdMat('#3a3d42', 0.5, 0.3), w / 2 - t - w * 0.25, y0 + ih * 0.42, bz + bd * 0.06));
+    g.add(B(0.012, 0.05, 0.05, glow, w / 2 - t - 0.012, y0 + ih * 0.74, bz - bd * 0.02));
+    for (const dz of [0.06, 0.075]) g.add(B(0.008, 0.11, 0.006, glow, w / 2 - t - 0.01, y0 + ih * 0.74, bz + dz));
+    const fan = new THREE.Mesh(new THREE.RingGeometry(Math.min(0.045, ih * 0.11), Math.min(0.06, ih * 0.14), 28), glow);
+    fan.position.set(0, y0 + ih * 0.78, -d / 2 + t + 0.002); g.add(fan);
+    g.add(B(0.004, 0.006, bd * 0.85, glow, -w / 2 + t + 0.01, h - t - 0.01, bz));
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(bd - 2 * bar, bh - 2 * bar), stdMat('#20323a', 0.05, 0.2, { transparent: true, opacity: 0.28, depthWrite: false }));
+    glass.rotation.y = -Math.PI / 2; glass.position.set(-w / 2 + t / 2, mid, bz); g.add(glass);
+    // front: mesh panel standing slightly proud, two light strips, ports on top
+    g.add(B(w, bh * 0.985, fd, mesh, 0, mid, d / 2 - fd / 2, 0.012));
+    for (const sx of [-0.12, 0.12]) g.add(B(0.006, bh * 0.8, 0.004, glow, sx * w, mid - bh * 0.03, d / 2 + 0.001));
+    g.add(B(w * 0.55, 0.004, 0.06, dark, 0, h + 0.001, d / 2 - 0.05));
+    if (it.mirror) g.scale.x = -1;
     return g;
   },
   microwave(it) {

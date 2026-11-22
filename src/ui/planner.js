@@ -925,22 +925,30 @@ function targetRoomForFitting(shape) {
   return r ? r.id : null;
 }
 
-/** Put a countertop appliance on the room's kitchen units, at the back, away from the
-    sink, hob and anything already standing there. False if the room has no units. */
-function onWorktop(it, rid) {
-  const units = flat.fixtures.filter((f) => f.shape === 'kitchenUnits' && f.room === rid && f.w >= it.w + 0.1);
+/* Things that stand on something: a microwave on the kitchen units, a monitor on a desk.
+   order: where along the surface to try first, as fractions of its length. */
+const SURFACES = {
+  microwave: { find: (rid) => flat.fixtures.filter((f) => f.shape === 'kitchenUnits' && f.room === rid), order: [0.1, 0.3, 0.5, 0.7, 0.9], back: 0.03 },
+  monitor: { find: (rid) => flat.design.items.filter((o) => (o.shape === 'desk' || o.shape === 'drawerDesk') && o.room === rid), order: [0.5, 0.25, 0.75, 0, 1], back: 0.06 },
+};
+
+/** Put it on a surface in its room: at the back, facing out, away from the sink and
+    hob and from anything already standing there. False if there's nothing to stand on. */
+function onSurface(it, rid) {
+  const kind = SURFACES[it.shape]; if (!kind) return false;
   let best = null;
-  for (const u of units) {
+  for (const u of kind.find(rid).filter((u) => u.w >= it.w + 0.1)) {
     const busy = [u.opts?.sink, u.opts?.hob].filter((v) => v !== null && v !== undefined).map((v) => -u.w / 2 + u.w * v);
     const a = -rad(u.rot), cos = Math.cos(a), sin = Math.sin(a);
     const toWorld = (lx, lz) => [u.x + lx * cos + lz * sin, u.z - lx * sin + lz * cos];
-    for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-      const lx = -u.w / 2 + it.w / 2 + 0.05 + t * (u.w - it.w - 0.1), lz = -u.d / 2 + it.d / 2 + 0.03;
-      const [x, z] = toWorld(lx, lz);
-      const crowd = flat.design.items.filter((o) => o.room === rid && Math.abs(o.elev - (u.elev + u.h)) < 0.05 && Math.hypot(o.x - x, o.z - z) < (o.w + it.w) / 2);
-      const gap = Math.min(1, ...busy.map((b) => Math.abs(b - lx) - 0.3)) - crowd.length;
-      if (!best || gap > best.gap) best = { gap, x, z, rot: u.rot, elev: u.elev + u.h };
-    }
+    kind.order.forEach((t, rank) => {
+      const lx = -u.w / 2 + it.w / 2 + 0.05 + t * (u.w - it.w - 0.1), lz = -u.d / 2 + it.d / 2 + kind.back;
+      const [x, z] = toWorld(lx, lz), top = u.elev + u.h;
+      const crowd = flat.design.items.filter((o) => o.room === rid && Math.abs(o.elev - top) < 0.05)
+        .reduce((sum, o) => sum + Math.max(0, (o.w + it.w) / 2 - Math.hypot(o.x - x, o.z - z)), 0);
+      const gap = Math.min(1, ...busy.map((b) => Math.abs(b - lx) - 0.3)) - 4 * crowd - rank * 0.001;
+      if (!best || gap > best.gap) best = { gap, x, z, rot: u.rot, elev: top };
+    });
   }
   if (!best) return false;
   Object.assign(it, { x: best.x, z: best.z, rot: best.rot, elev: best.elev });
@@ -956,7 +964,7 @@ function addItem(entry) {
     const unit = flat.design.items.find((i) => (i.shape === 'tvUnit' || i.shape === 'sideboard') && i.room === rid);
     if (unit) { it.x = unit.x; it.z = unit.z; it.rot = unit.rot; it.elev = unit.elev + unit.h; world.resolve(it, false, R); }
     else world.backToWall(it, R);
-  } else if (SHAPES[it.shape].group === 'Appliances' && SHAPES[it.shape].elev && onWorktop(it, rid)) {
+  } else if (SURFACES[it.shape] && onSurface(it, rid)) {
     world.resolve(it, false, R);
   } else if (entry.wall) world.backToWall(it, R);
   else world.placeFree(it, R, flat.design.items);
@@ -1343,6 +1351,7 @@ function itemInspector(it) {
     el('div', { class: 'row' },
       el('button', { type: 'button', class: 'btn small', onclick: () => { world.backToWall(it, world.ROOMS[it.room]); syncItems(); commit(); renderInspectorSoon(); } }, 'Back against nearest wall'),
       it.shape === 'cornerSofa' ? el('button', { type: 'button', class: 'btn small', onclick: () => { it.mirror = !it.mirror; syncItems(); commit(); } }, 'Swap the chaise side') : null,
+      it.shape === 'pcTower' ? el('button', { type: 'button', class: 'btn small', onclick: () => { it.mirror = !it.mirror; syncItems(); commit(); } }, 'Swap the window side') : null,
       e ? el('button', { type: 'button', class: 'btn small', onclick: async () => {
         const res = await editEntryFlow(e);
         if (!flat) return;
