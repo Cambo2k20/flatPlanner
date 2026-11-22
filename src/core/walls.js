@@ -31,6 +31,17 @@ function indexNear(arr, v) {
   return -1;
 }
 
+// Signed inset in metres: positive moves the end jamb into the room, negative the start.
+export function doorwayFrame(o) {
+  const inset = o.op.jambInset || 0;
+  if (!inset) return o;
+  const start = Math.max(0, -inset), width = o.u1 - o.u0;
+  const len = Math.hypot(width, inset);
+  const d = { x: (width * o.d.x + inset * o.n.x) / len, z: (width * o.d.z + inset * o.n.z) / len };
+  const A = { x: o.p0.x + start * o.n.x, z: o.p0.z + start * o.n.z };
+  return { ...o, A, d, n: { x: -d.z, z: d.x }, u0: 0, u1: len };
+}
+
 export function computeWalls(flat) {
   const E = flat.outerWall, rooms = flat.rooms;
   const shapes = rooms.map((r) => ({ room: r, rects: roomRects(r), edges: roomEdges(r) }));

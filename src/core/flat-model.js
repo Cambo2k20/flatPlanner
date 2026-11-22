@@ -204,6 +204,8 @@ export function normalizeOpening(o, flat) {
     id: str(o.id, 40) || uid(), room: room.id, edge, pos, width, kind, sill, top,
     style: o.style === 'glazed' ? 'glazed' : 'panel',
     hinge: o.hinge === 'end' ? 'end' : 'start',
+    ...(kind === 'door' && Number.isFinite(o.jambInset) && o.jambInset
+      ? { jambInset: clamp(o.jambInset, -width, width) } : {}),
     swing: o.swing === 'out' ? 'out' : 'in',
     sillBoard: kind === 'window' ? o.sillBoard !== false : false,
     frameLift: clamp(numOr(o.frameLift, 0), 0, 0.2),

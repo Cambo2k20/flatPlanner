@@ -1,6 +1,7 @@
 /* Turns a flat's data and its computed walls into 3D: walls (each in three heights so
    the view can cut away the ones in front), floors, ceilings, skirting, coving, doors,
    windows and the door swings drawn on the floor. */
+import { doorwayFrame } from '../core/walls.js';
 import * as THREE from 'three';
 import { floorFor, paintFor, roomCentre, roomEdges, roomPolygon, roomType } from '../core/flat-model.js';
 import { RB } from './furniture.js';
@@ -156,9 +157,29 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
   const doorLabel = Object.fromEntries(world.DOORS.filter((d) => d.label).map((d) => [d.id, d.label]));
   for (const o of walls.openings) {
     if (!o.ok) continue;
-    const fr = edgeFrame(o.A, o.d);
+    const frame = doorwayFrame(o);
+    const fr = edgeFrame(frame.A, frame.d);
+    if (o.op.jambInset) {
+      // Replace the straight lintel and connect the recessed jamb to the original wall.
+      const recs = wallRecs.filter((rec) => rec.opening === o.id);
+      for (const rec of recs) {
+        rec.full.traverse((child) => child.geometry?.dispose());
+        rec.full.clear();
+      }
+      const rec = recs[0], inset = o.op.jambInset;
+      const end = inset > 0 ? o.p1 : o.p0;
+      const mat = wallKey(o.room, o.edge);
+      const lintel = edgeFrame(frame.A, frame.d);
+      lintel.add(RB(frame.u1, H - o.y1, o.t, mat, frame.u1 / 2, (o.y1 + H) / 2, -o.t / 2));
+      rec.full.add(lintel);
+      for (const [g, height] of [[rec.full, H], [rec.stub, STUB], [rec.plan, PLAN_CUT]]) {
+        const jamb = edgeFrame(end, o.d);
+        jamb.add(RB(o.t, height, Math.abs(inset) + o.t, mat, Math.sign(inset) * o.t / 2, height / 2, (Math.abs(inset) - o.t) / 2));
+        g.add(jamb);
+      }
+    }
     const spec = {
-      u0: o.u0, u1: o.u1, y0: o.y0, y1: o.y1, kind: o.kind, style: o.op.style, label: doorLabel[o.id],
+      u0: frame.u0, u1: frame.u1, y0: o.y0, y1: o.y1, kind: o.kind, style: o.op.style, label: doorLabel[o.id],
       hinge: o.op.hinge === 'start' ? 'u0' : 'u1', side: o.op.swing === 'out' ? -1 : 1, sillBoard: o.op.sillBoard, frameLift: o.op.frameLift,
     };
     fr.add(o.kind === 'window' ? buildWindow(spec, o.t) : buildDoor(spec, o.t));
@@ -166,9 +187,9 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
     wallGroup.add(fr);
     openingVisuals.push({ id: o.id, group: fr });
     if (!forExport) {
-      const pk = edgeFrame(o.A, o.d);
-      const pick = new THREE.Mesh(new THREE.BoxGeometry(o.u1 - o.u0, o.y1 - o.y0, o.t + 0.02), pickMat);
-      pick.position.set((o.u0 + o.u1) / 2, (o.y0 + o.y1) / 2, -o.t / 2); pk.add(pick);
+      const pk = edgeFrame(frame.A, frame.d);
+      const pick = new THREE.Mesh(new THREE.BoxGeometry(frame.u1 - frame.u0, o.y1 - o.y0, o.t + 0.02), pickMat);
+      pick.position.set((frame.u0 + frame.u1) / 2, (o.y0 + o.y1) / 2, -o.t / 2); pk.add(pick);
       pk.userData.openingId = o.id;
       wallGroup.add(pk); openingGroups.push(pk);
     }
@@ -231,6 +252,14 @@ export function buildFlatMeshes(flat, walls, world, { forExport = false } = {}) 
     if (!o.ok || o.kind === 'window') continue;
     const into = o.kind === 'door' ? (o.op.swing === 'out' ? o.farRoom : o.room) : (o.farRoom || o.room);
     const R = rooms[into] || rooms[o.room];
+    if (o.op.jambInset && o.farRoom) {
+      const jamb = o.op.jambInset > 0 ? o.p1 : o.p0;
+      const offset = Math.abs(o.op.jambInset);
+      const tip = { x: jamb.x + offset * o.n.x, z: jamb.z + offset * o.n.z };
+      const landing = new THREE.Mesh(polyGeo([o.p0, o.p1, tip], false), floorMat(floorFor(flat, rooms[o.farRoom])));
+      landing.position.y = 0.001; landing.userData.roomId = o.farRoom;
+      roomGroups[o.farRoom].add(landing); floors.push(landing);
+    }
     const far = [o.p0, o.p1].map((p) => ({ x: p.x - o.n.x * o.t, z: p.z - o.n.z * o.t }));
     const xs = [o.p0.x, o.p1.x, far[0].x, far[1].x], zs = [o.p0.z, o.p1.z, far[0].z, far[1].z];
     const m = new THREE.Mesh(polyGeo(rectPts(Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)), false), floorMat(floorFor(flat, R)));

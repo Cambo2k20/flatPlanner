@@ -1,6 +1,7 @@
 /* Where furniture can go: keeping it inside a room and out of its fixed fittings,
    snapping it to walls, spotting overlaps, and where you can walk at eye level.
    Ported from the original planner, now driven by the flat's data. */
+import { doorwayFrame } from './walls.js';
 import { notchRect } from './flat-model.js';
 import { clamp, rad } from './util.js';
 
@@ -55,12 +56,13 @@ export function doorInfos(flat, walls) {
     const ends = [P(o.u0 + 0.12, 0.32), P(o.u1 - 0.12, 0.32), P(o.u0 + 0.12, -t - 0.32), P(o.u1 - 0.12, -t - 0.32)];
     const pass = [Math.min(...ends.map((p) => p.x)), Math.min(...ends.map((p) => p.z)), Math.max(...ends.map((p) => p.x)), Math.max(...ends.map((p) => p.z))];
     if (o.kind === 'opening') { out.push({ id: o.id, pass }); continue; }
+    const frame = doorwayFrame(o);
     const side = o.op.swing === 'out' ? -1 : 1;
-    const uh = o.op.hinge === 'start' ? o.u0 + 0.02 : o.u1 - 0.02, faceOff = side > 0 ? 0 : -t;
-    const hp = P(uh, faceOff);
-    const cd = o.op.hinge === 'start' ? { x: o.d.x, z: o.d.z } : { x: -o.d.x, z: -o.d.z };
-    const od = { x: o.n.x * side, z: o.n.z * side };
-    const r = o.u1 - o.u0 - 0.046, poly = [{ x: hp.x, z: hp.z }];
+    const uh = o.op.hinge === 'start' ? frame.u0 + 0.02 : frame.u1 - 0.02, faceOff = side > 0 ? 0 : -t;
+    const hp = { x: frame.A.x + frame.d.x * uh + frame.n.x * faceOff, z: frame.A.z + frame.d.z * uh + frame.n.z * faceOff };
+    const cd = o.op.hinge === 'start' ? frame.d : { x: -frame.d.x, z: -frame.d.z };
+    const od = { x: frame.n.x * side, z: frame.n.z * side };
+    const r = frame.u1 - frame.u0 - 0.046, poly = [{ x: hp.x, z: hp.z }];
     for (let i = 0; i <= 10; i++) {
       const a = (i / 10) * (Math.PI / 2);
       poly.push({ x: hp.x + r * (Math.cos(a) * cd.x + Math.sin(a) * od.x), z: hp.z + r * (Math.cos(a) * cd.z + Math.sin(a) * od.z) });
