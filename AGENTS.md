@@ -11,8 +11,11 @@ the layout of the code and how a flat is described.
 - Run `npm test` after every change. Logic in `src/core/` has no 3D and is unit-tested.
 - The owner uses an iPhone (Safari). Check every page at phone size (390 × 844). Safari
   sizes form fields by their natural width, so grid columns use `minmax(0, 1fr)`.
-- Data lives only in the owner's browser (IndexedDB). You can't see their flats: ask for
-  a flat file ("Save this flat as a file" on the Details tab) or screenshots.
+- Data is cached per account in IndexedDB and can sync to Supabase after email sign-in.
+  See `docs/cloud-saving.md` and `supabase/schema.sql`. Never use a service-role key in
+  browser code. Do not read the owner's cloud flats unless the task calls for it.
+- For sync changes, run `npm run test:browser` (Chromium and WebKit, 390 × 844) as well
+  as the unit tests. The browser suite uses a fake service, never real listings.
 - Never commit listings, traced flats or flat files: they show which homes the owner is
   looking at. Work on them outside the repository.
 - Text in the app is plain British English: short sentences, no jargon.

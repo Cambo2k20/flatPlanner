@@ -18,6 +18,7 @@
     <a class="brand" href="#/"><span class="logo" aria-hidden="true"></span>Flat Planner</a>
     <nav class="row">
       <a class="btn ghost" href="#/catalogue">My catalogue</a>
+      <button class="btn" type="button" data-account>Sign in to save</button>
       <button class="btn" id="h-open" type="button">Open a file</button>
       <button class="btn primary" id="h-new" type="button">Add a flat</button>
     </nav>
@@ -29,7 +30,7 @@
     </div>
     <div id="flat-grid" class="grid flats"></div>
     <footer class="foot">
-      <p class="note">Everything is kept in this browser. Save a backup file now and then, or to move your flats and catalogue to another device.</p>
+      <p class="note">Sign in to keep your flats and catalogue across browsers and devices. You can also save a backup file.</p>
       <div class="row">
         <button class="btn small" id="h-backup" type="button">Save a backup of everything</button>
       </div>
@@ -43,6 +44,7 @@
     <a class="brand" href="#/"><span class="logo" aria-hidden="true"></span>Flat Planner</a>
     <nav class="row">
       <a class="btn ghost" href="#/">My flats</a>
+      <button class="btn" type="button" data-account>Sign in to save</button>
       <button class="btn" id="c-import" type="button">Import</button>
       <button class="btn" id="c-export" type="button">Export</button>
       <button class="btn primary" id="c-new" type="button">Add an item</button>
@@ -74,7 +76,7 @@
   <div id="app">
     <aside id="panel" aria-label="Planner controls">
       <header class="ph">
-        <a class="back" href="#/">← My flats</a>
+        <div class="row between"><a class="back" href="#/">← My flats</a><button class="btn small" type="button" data-account>Sign in to save</button></div>
         <h1 id="p-title">Flat</h1>
         <p class="sub" id="p-sub"></p>
       </header>
@@ -117,6 +119,7 @@
 
 <dialog id="dlg" class="dlg"></dialog>
 <input type="file" id="file-any" accept=".json,.csv,application/json,text/csv" hidden>
+<p id="cloud-status" class="sr" role="status" aria-live="polite"></p>
 <div id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="/src/main.js"></script>
 </body>

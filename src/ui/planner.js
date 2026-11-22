@@ -178,11 +178,11 @@ export function openPlanner(f, tabName) {
   startLoop();
 }
 
-export function closePlanner() {
+export function closePlanner({ save = true } = {}) {
   if (!flat) return;
-  captureThumbnail();
+  if (save) captureThumbnail();
   stopLoop();
-  saveFlats.flush();
+  if (save) saveFlats.flush();
   flat = null; selection = null;
   $('#inspector').hidden = true;
 }

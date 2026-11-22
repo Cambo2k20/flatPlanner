@@ -3,3 +3,10 @@ dist/
 .DS_Store
 *.log
 .vite/
+
+.env
+.env.*
+!.env.example
+
+playwright-report/
+test-results/
